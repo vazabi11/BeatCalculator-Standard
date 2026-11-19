@@ -1,4 +1,3 @@
-
 name: Build Calculator APK
 
 on:
@@ -25,7 +24,6 @@ jobs:
         with:
           gradle-version: '8.9'
 
-
       - name: Install Android SDK 35
         shell: bash
         run: |
@@ -35,9 +33,7 @@ jobs:
             echo "::error::Android SDK command-line tools are missing"
             exit 1
           fi
-          echo "Using $SDKMANAGER"
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
 
       - name: Unit test calculator engine
         shell: bash
@@ -45,8 +41,18 @@ jobs:
           mkdir -p tests/out
           javac -encoding UTF-8 -d tests/out \
             app/src/main/java/com/beatoflove/standardcalculator/CalculatorEngine.java \
-            tests/CalculatorEngineTest.java
+            app/src/main/java/com/beatoflove/standardcalculator/UnitConverter.java \
+            tests/CalculatorEngineTest.java \
+            tests/AdvancedFeaturesTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/CacheUpdatePolicy.java \
+            tests/CacheUpdatePolicyTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/FreshnessPolicy.java \
+            app/src/main/java/com/beatoflove/standardcalculator/OilPriceParser.java \
+            tests/MarketFeedsTest.java
           java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
+          java -cp tests/out com.beatoflove.standardcalculator.AdvancedFeaturesTest
+          java -cp tests/out com.beatoflove.standardcalculator.MarketFeedsTest
+          java -cp tests/out com.beatoflove.standardcalculator.CacheUpdatePolicyTest
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
@@ -54,6 +60,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BeatCalculator-Standard-debug-APK
+          name: BeatCalculator-MultiMarket-v4_1-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
