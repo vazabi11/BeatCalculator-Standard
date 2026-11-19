@@ -15,6 +15,12 @@ public final class CalculatorEngineTest {
         tests++;
     }
     public static void main(String[] args) {
+        check("trailing decimal zeros", "1.200", "1", ".", "2", "0", "0");
+        check("decimal point retained", "1.", "1", ".");
+        check("small decimal exact", "0.0001200", "0", ".", "0", "0", "0", "1", "2", "0", "0");
+        check("large input grouping", "1,234,567,890,123,456", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", "6");
+        check("long decimal 1 divided by 3", "0.3333333333333333", "1", "÷", "3", "=");
+        check("negative trailing zero", "-0.010", "0", ".", "0", "1", "0", "±");
         check("add", "500", "1","2","5","×","4","=");
         check("divide", "25", "1","0","0","÷","4","=");
         check("percent add", "220", "2","0","0","+","1","0","%","=");

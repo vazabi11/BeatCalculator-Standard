@@ -3,12 +3,9 @@ package com.beatoflove.standardcalculator;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /** Pure-Java, offline, deterministic standard calculator state machine. */
 public final class CalculatorEngine {
@@ -27,6 +24,7 @@ public final class CalculatorEngine {
     private String expression = "";
     private BigDecimal memory;
     private final List<String> history = new ArrayList<>();
+    private boolean degreeMode = true;
 
     public void press(String key) {
         if (key == null) return;
@@ -37,6 +35,12 @@ public final class CalculatorEngine {
             case ".": decimal(); break;
             case "+": case "−": case "×": case "÷": binary(key); break;
             case "=": equalsKey(); break;
+            case "^": case "mod": binary(key); break;
+            case "sin": case "cos": case "tan": case "asin": case "acos": case "atan":
+            case "log": case "ln": case "exp": case "10^x": case "n!": case "cube":
+            case "abs": applyScientific(key); break;
+            case "π": constant(Math.PI, "π"); break;
+            case "e": constant(Math.E, "e"); break;
             case "AC": case "C": clearAll(); break;
             case "CE": clearEntry(); break;
             case "⌫": backspace(); break;
@@ -145,6 +149,14 @@ public final class CalculatorEngine {
                 case "+": return safe(a.add(b, MC));
                 case "−": return safe(a.subtract(b, MC));
                 case "×": return safe(a.multiply(b, MC));
+                case "^": {
+                    double pow = Math.pow(a.doubleValue(), b.doubleValue());
+                    if (!Double.isFinite(pow)) { fail("Invalid calculation"); return null; }
+                    return safe(BigDecimal.valueOf(pow).round(MC));
+                }
+                case "mod":
+                    if (b.signum() == 0) { fail("Cannot divide by zero"); return null; }
+                    return safe(a.remainder(b, MC));
                 case "÷":
                     if (b.signum() == 0) { fail("Cannot divide by zero"); return null; }
                     return safe(a.divide(b, MC));
@@ -235,6 +247,45 @@ public final class CalculatorEngine {
         afterEquals = false;
     }
 
+    public void setDegreeMode(boolean degrees) { degreeMode = degrees; }
+    public boolean isDegreeMode() { return degreeMode; }
+    private void constant(double number, String label) {
+        if (error) clearAll();
+        if (afterEquals && pendingOp == null) resetAfterResult();
+        entry = plain(BigDecimal.valueOf(number));
+        expression = label;
+        startNewEntry = false;
+        afterEquals = false;
+    }
+    private void applyScientific(String fn) {
+        if (error) return;
+        BigDecimal v=current(); if (v==null) return;
+        double x=v.doubleValue(); double y;
+        switch (fn) {
+            case "sin": y=Math.sin(degreeMode?Math.toRadians(x):x); break;
+            case "cos": y=Math.cos(degreeMode?Math.toRadians(x):x); break;
+            case "tan": y=Math.tan(degreeMode?Math.toRadians(x):x); break;
+            case "asin": y=Math.asin(x); if (degreeMode) y=Math.toDegrees(y); break;
+            case "acos": y=Math.acos(x); if (degreeMode) y=Math.toDegrees(y); break;
+            case "atan": y=Math.atan(x); if (degreeMode) y=Math.toDegrees(y); break;
+            case "ln": y=Math.log(x); break;
+            case "log": y=Math.log10(x); break;
+            case "exp": y=Math.exp(x); break;
+            case "10^x": y=Math.pow(10,x); break;
+            case "cube": y=x*x*x; break;
+            case "abs": y=Math.abs(x); break;
+            case "n!":
+                if (x<0 || x!=Math.rint(x) || x>70) { fail("Factorial: 0–70 only"); return; }
+                BigDecimal fact=BigDecimal.ONE;
+                for (int i=2;i<=x;i++) fact=fact.multiply(BigDecimal.valueOf(i));
+                applyUnary(fact,"fact("+format(v)+")");
+                return;
+            default: return;
+        }
+        if (!Double.isFinite(y)) { fail("Invalid calculation"); return; }
+        if (Math.abs(y)<1e-12) y=0d; // avoid floating residue from trig at right angles
+        applyUnary(BigDecimal.valueOf(y).round(MC),fn+"("+format(v)+")");
+    }
     private void memoryStore() { BigDecimal v = current(); if (v != null) memory = v; }
     private void memoryAdd(boolean subtract) {
         BigDecimal v = current(); if (v == null) return;
@@ -298,10 +349,11 @@ public final class CalculatorEngine {
     }
     public String getDisplay() {
         if (error) return entry;
-        if (entry.endsWith(".")) return format(new BigDecimal(entry.substring(0, entry.length() - 1))) + ".";
-        if (entry.equals("-0")) return "-0";
-        return format(new BigDecimal(entry));
+        // Preserve trailing zeroes, decimal point, and every input digit.
+        // Display precision must not depend on how many pixels fit on screen.
+        return formatLiteral(entry);
     }
+
     public String getExpression() { return expression; }
     public boolean hasError() { return error; }
     private static String plain(BigDecimal number) {
@@ -310,10 +362,23 @@ public final class CalculatorEngine {
         return clean.toPlainString();
     }
     private static String format(BigDecimal number) {
-        DecimalFormat f = new DecimalFormat("#,##0.################", DecimalFormatSymbols.getInstance(Locale.US));
-        f.setRoundingMode(RoundingMode.HALF_UP);
-        f.setGroupingUsed(true);
-        f.setMaximumFractionDigits(16);
-        return f.format(number);
+        return formatLiteral(plain(number));
     }
+
+    private static String formatLiteral(String value) {
+        if (value == null || value.isEmpty()) return "0";
+        boolean negative = value.startsWith("-");
+        int start = negative ? 1 : 0;
+        int decimalPoint = value.indexOf('.');
+        int integerEnd = decimalPoint < 0 ? value.length() : decimalPoint;
+        StringBuilder result = new StringBuilder(value.length() + 8);
+        if (negative) result.append('-');
+        for (int i = start; i < integerEnd; i++) {
+            if (i > start && (integerEnd - i) % 3 == 0) result.append(',');
+            result.append(value.charAt(i));
+        }
+        if (decimalPoint >= 0) result.append(value.substring(decimalPoint));
+        return result.toString();
+    }
+
 }

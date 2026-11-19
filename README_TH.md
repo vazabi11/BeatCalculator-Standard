@@ -1,81 +1,89 @@
-# Beat Calculator — Standard V2.0
+# Beat Calculator — Multi-Market Android V4.0
 
-Android Native (Java 17) · Offline · ปรับหน้าตาตามภาพอ้างอิง Windows Calculator / Standard / Dark Theme
+แอป Android Native Java 17 (minSdk 26) สำหรับ Samsung Galaxy S24 Ultra / Android 8+
 
-## สิ่งที่มีในโปรเจกต์
+## ฟังก์ชันที่พร้อมใช้งาน
 
-- หน้าจอธีมมืดแบบ Standard: 4 คอลัมน์ × 6 แถว + แถบ Memory
-- บวก ลบ คูณ หาร / ทศนิยม / เปอร์เซ็นต์ / เปลี่ยนเครื่องหมาย ±
-- CE / C / ลบทีละหลัก / 1/x / x² / √x
-- การกดเท่ากับซ้ำ, คำนวณต่อเนื่องจากซ้ายไปขวา
-- History สูงสุด 50 รายการ (แตะผลเก่าเพื่อเรียกใช้)
-- Memory: MC, MR, M+, M−, MS, M▾
-- ปุ่มคัดลอกผลลัพธ์, เปิดเต็มจอ, ย่อ และปิดแอป
-- บันทึกประวัติและหน่วยความจำในเครื่อง (SharedPreferences)
-- ไม่มี Internet permission, ไม่มีโฆษณาหรือ Analytics
-- เมนู "ล้างข้อมูลทั้งหมด" ล้างการคำนวณ ประวัติ และหน่วยความจำ
-- ใช้ Application ID ใหม่ `com.beatoflove.standardcalculator` เพื่อไม่ใช้ข้อมูลของรุ่นเก่า
+- Basic, Standard, Advance, Science — เครื่องคิดเลขเดิม รวมปัดหน้าจอดูเลขยาวและคงศูนย์ท้ายทศนิยม
+- แปลงหน่วย — พื้นที่ ความยาว อุณหภูมิ ปริมาตร น้ำหนัก ความเร็ว เวลา และภาษี
+- **ราคาน้ำมัน:** เปรียบเทียบ PTT OR กับบางจาก โดยเลือกชนิด Gasohol 91, 95, E20, E85 และดีเซล หรือดูทุกชนิด พร้อมแสดงเวลาประกาศ; Shell มีตัวเลือกแต่ยังไม่แสดงราคาอัตโนมัติจนกว่าจะมี API ที่ยืนยันสิทธิ์การใช้งาน
+- **ทองไทย 96.5%:** ทองแท่ง/ทองรูปพรรณ แสดงรับซื้อ/ขายออก 4 ค่า ข้อมูลจาก ThaiGoldToday Public API พร้อมเครดิตและลิงก์กลับ
+- โลหะตลาดโลกเดิม: XAU, XAG, XPT, XPD หน่วย USD/oz
 
-## แนะนำ: สร้าง Repository ใหม่บน GitHub เพื่อทดสอบ APK
+## แหล่งที่มาและสิทธิ์การใช้ข้อมูล
 
-1. ดาวน์โหลด `BeatCalculator-Standard-Android-v2.zip` แล้ว Extract All บน Windows 11
-2. เปิด GitHub → **New repository** ตั้งชื่อ `BeatCalculator-Standard` เลือก Private หรือ Public ตามต้องการ และ **อย่าติ๊ก Add README**
-3. ในหน้า repository ใหม่ เลือก **uploading an existing file** หรือ **Add file → Upload files**
-4. เปิดโฟลเดอร์ที่แตก ZIP และเลือก **เนื้อหาทั้งหมดภายในโฟลเดอร์** (ไม่ใช่ลากโฟลเดอร์หลักครอบซ้ำ) ให้รวม `.github` ด้วย
-5. กด **Commit changes** ไปยัง `main`
-6. ตรวจสอบไฟล์ต่อไปนี้ที่ root ของ Repository:
-   - `.github/workflows/build-apk.yml`
-   - `settings.gradle`
-   - `build.gradle`
-   - `app/build.gradle`
-   - `app/src/main/AndroidManifest.xml`
-7. เปิดแท็บ **Actions** → เลือก **Build Calculator APK** → **Run workflow** → เลือก `main` → **Run workflow**
-8. เมื่อ job สำเร็จ (เขียว) → เปิด workflow run → ส่วน **Artifacts** → ดาวน์โหลด `BeatCalculator-Standard-debug-APK`
-9. แตก ZIP จาก Artifact จะได้ `app-debug.apk`
-10. ส่ง APK ไป Samsung Galaxy S24 Ultra และติดตั้งจาก My Files โดยยอมรับเฉพาะไฟล์ที่คุณเพิ่ง Build เอง
+| ผู้ให้บริการ | ข้อมูล/ช่องทาง | สถานะใน V4.0 |
+| --- | --- | --- |
+| PTT OR | https://www.pttor.com/news/oil-price และ https://orapiweb.pttor.com/oilservice/OilPrice.asmx | เรียก SOAP `CurrentOilPrice` (เปิดเผยบนเว็บไซต์ OR) |
+| บางจาก | https://www.bangchak.co.th/th/OilPrice/ / `https://oil-price.bangchak.co.th/ApiOilPrice2/th` | ใช้ Web Service ที่บริษัทเผยแพร่สำหรับเชื่อมโยงราคา |
+| Shell | https://www.shell.co.th/ และตารางราคาน้ำมันของ https://www.eppo.go.th/ | **ยังไม่พบ API สาธารณะ/สิทธิ์ที่ยืนยันได้**: แสดงลิงก์ ไม่เดาราคา |
+| ทองไทย | https://www.thaigoldtoday.com/api-docs / `https://www.thaigoldtoday.com/api/gold-price` | Free Public JSON API; เอกสารอนุญาตใช้ใน mobile app พร้อมระบุเครดิต/ลิงก์กลับ |
+| โลหะ Spot | https://gold-api.com/docs | ราคา Spot USD/oz; ไม่ใช่ทองไทย |
+| สมาคมค้าทองคำ | https://www.goldtraders.or.th/ | ลิงก์ตรวจสอบประกาศทางการ; ไม่แอบใช้ API ที่ต้องขอ token |
 
-**สำคัญ:** อย่าใช้ Workflow รุ่นเก่าที่มี `android-actions/setup-android@v3` ซึ่งเคยล้มเหลวจากการพยายามติดตั้งแพ็กเกจ SDK ชื่อ `tools`  Workflow ใหม่นี้ใช้ Android SDK ที่ติดตั้งอยู่บน GitHub runner และเรียก `sdkmanager` โดยตรง
+**สำคัญ:** การเปิด API ให้เรียกได้และเอกสารเว็บเซอร์วิสไม่ใช่สัญญาอนุญาตใช้เชิงพาณิชย์ทุกกรณี หากจะเผยแพร่แอปต่อสาธารณะ ควรตรวจเงื่อนไขล่าสุดกับเจ้าของข้อมูลโดยตรง โดยเฉพาะการเก็บ/แจกจ่ายราคาต่อและการใช้ตราสินค้า
 
-## ถ้าต้องใช้ Repository เก่า `vazabi11/BeatCalculator`
+## การตีความความสด
 
-แนะนำสร้าง Repository ใหม่ก่อน เพื่อกันไฟล์เก่า `main.yml` รบกวน และป้องกันลบข้อมูลย้อนหลังโดยไม่ได้ตั้งใจ เมื่อโปรเจกต์ใหม่ Build สำเร็จค่อย Archive หรือ Delete ของเก่าด้วยตนเอง หากไม่ต้องการเก็บโค้ดรุ่นเก่า
+- ใช้เวลา **จากผู้ให้ข้อมูล** ไม่ใช่เวลาที่ผู้ใช้กดรีเฟรช
+- PTT OR: ตรวจ `PRICE_DATE` รายชนิด; เก่ากว่า 72 ชม. หรือไม่มีเวลาจะมีคำเตือน
+- บางจาก: ตรวจวันที่สังเกตการณ์ `OilDateNow` ตาม service; เมื่อเก่ากว่าเกณฑ์จะแสดงคำเตือน
+- ทองไทย: ตรวจ `current.updatedAt`; เกิน 24 ชม. จะแสดงว่าเก่า (วันหยุดอาจมีประกาศล่าสุดเดิม แต่ไม่เรียกว่าราคาสด)
+- Gold API Spot: นโยบายเดิมตรวจ `updatedAt` 10 นาที
+- Shell: ไม่มีราคาที่ดึงโดยแอป; ไม่ใช้ข้อมูลจากเว็บไซต์ที่ไม่อนุญาตให้ดูดข้อมูล
 
-## เปิดโปรเจกต์ใน Android Studio
+HTTP 401/403/429, timeout, schema ผิด, วันที่แหล่งข้อมูลไม่พร้อม = แสดง Error/Warning ไม่แสดง 0 บาท หรือราคาสมมติ
 
-1. เปิด Android Studio → **Open** → เลือกโฟลเดอร์ที่มี `settings.gradle`
-2. โปรเจกต์ใช้ Android Gradle Plugin 8.7.3 / Gradle 8.9 / JDK 17 / Compile SDK 35
-3. โปรเจกต์ ZIP นี้ **ไม่มี Gradle Wrapper binaries** (`gradlew`, `gradle-wrapper.jar`) เพราะไม่สามารถดาวน์โหลดไฟล์ทางการภายในสภาพแวดล้อมที่สร้าง ZIP นี้ได้ ดังนั้นแนะนำ Build ผ่าน GitHub Actions ตามขั้นตอนด้านบน
-4. หากจะใช้ Android Studio ต้องมี Gradle 8.9 ในเครื่อง หรือเพิ่ม Gradle Wrapper ด้วย Gradle ที่ติดตั้งแล้ว (`gradle wrapper --gradle-version 8.9`) ก่อน Sync
-5. เมื่อ Sync สำเร็จ ใช้ **Build → Build APK(s)** หรือชื่อเมนูใหม่ **Generate APK(s)** แล้วอ่านผลใน Build output
-6. APK จะอยู่ใน `app/build/outputs/apk/debug/app-debug.apk`
+## วิธี Build GitHub Actions
 
-## ทดสอบ Logic บนคอมพิวเตอร์ (ไม่ต้องมี Android SDK)
+1. โปรเจกต์นี้มี `settings.gradle` ที่ระดับบนสุด และ `.github/workflows/build-apk.yml`
+2. เปิด Repository `https://github.com/vazabi11/BeatCalculator-Standard` และอัปเดตจาก V2.0 ด้วย GitHub Desktop ตาม `UPGRADE_V4_TH.md`
+3. Push ไฟล์ลง branch `main`
+4. เปิด Actions > Build Calculator APK (จะถูก trigger ด้วย push หรือเลือก Run workflow)
+5. ตรวจผล Test 3 ชุด:
+   - `PASS 42 calculator engine tests`
+   - `PASS 25 advanced/unit tests`
+   - `PASS 11 market feed tests`
+6. ตรวจ `Build debug APK` และ `Upload APK` เป็น Success
+7. ดาวน์โหลด Artifact `BeatCalculator-MultiMarket-v4-debug-APK` แล้วแตก ZIP รับ `app-debug.apk`
 
-จาก root ของโปรเจกต์:
+**ข้อจำกัดการตรวจสอบ:** ทดสอบโค้ด Java แบบออฟไลน์รวม 78 กรณีผ่านแล้ว; ยังไม่ได้ Build APK จริงด้วย Android SDK บนระบบที่สร้างแพ็กเกจ และยังไม่ได้ทดสอบการเรียก API สดบน S24 Ultra จึงต้องยืนยันจากผล GitHub Actions/มือถืออีกครั้ง
 
-```bash
-mkdir -p tests/out
-javac -encoding UTF-8 -d tests/out app/src/main/java/com/beatoflove/standardcalculator/CalculatorEngine.java tests/CalculatorEngineTest.java
-java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
-```
+## ความปลอดภัยและข้อมูลส่วนตัว
 
-ผลที่ตรวจสอบได้ในขั้นสร้างโปรเจกต์: `PASS 36 calculator engine tests` (การคำนวณระดับ Java)
+- อ่านราคาเฉพาะผ่าน HTTPS; ไม่ใช้ API Key และไม่เก็บ token ลง Repository
+- คำนวณเลขและแปลงหน่วยออฟไลน์; ปุ่มราคาเท่านั้นที่เรียกเครือข่าย
+- ไม่ใช้ GPS/ตำแหน่ง; ราคาน้ำมันอ้างอิงแหล่งประกาศ/กรุงเทพฯ ไม่ใช่ราคาหน้าปั๊มเฉพาะสถานี
+- SharedPreferences `calculator_standard_v2` ใช้เก็บประวัติ/Memory เดิมต่อเนื่องถ้าติดตั้งทับด้วยลายเซ็นเดียวกัน
+- Debug APK จาก GitHub Runner ต่างรอบอาจใช้ signing key ไม่ตรงกัน: อย่าเพิ่งถอนแอปเก่าหากต้องเก็บประวัติ ให้จัดการ release signing key แบบคงที่และเก็บไว้ใน GitHub Secrets ก่อน
 
-## วิธีทดสอบบนมือถือ
+## หลังจาก V4.0
 
-- `125 × 4 =` → `500`
-- `200 + 10 % =` → `220`
-- `8 + 2 × 3 =` → `30` (เครื่องคิดเลข Standard ประมวลผลแบบต่อเนื่องซ้ายไปขวา)
-- `9 x²` → `81`
-- `81 √x` → `9`
-- `1 ÷ 0 =` → `Cannot divide by zero`
-- `15 MS` → `C` → `MR` → `15`
-- เปิด History และเลือกผลเก่าเพื่อเรียกกลับมาใช้งาน
-- เปิดเมนู `☰` → ล้างข้อมูลทั้งหมด เพื่อเริ่มต้นจากศูนย์
+- Shell: เชื่อม API หรือ data license ที่ตรวจสิทธิ์แล้ว; ไม่ใช้การ scrape เว็บโดยพลการ
+- หากต้องการ API ของสมาคมค้าทองคำโดยตรง: ขอ token/สิทธิ์จากสมาคมแล้วสร้าง proxy ฝั่ง server เพื่อไม่เปิดเผย token ใน APK
+- เพิ่มเลือกพื้นที่/สถานีเมื่อเจ้าของข้อมูลเปิด API ราคาตามพื้นที่ที่ได้รับอนุญาต
 
-## ข้อจำกัดการยืนยัน
+---
 
-- โค้ดแกนคำนวณทดสอบด้วย `javac/java` แล้ว
-- ไฟล์ HTML ตัวอย่างเป็นตัวทดลองแยกจาก Native Android และตรวจด้วย Chromium แล้ว
-- ยังไม่มีการคอมไพล์ APK จริงในสภาพแวดล้อมที่สร้างไฟล์นี้ (ไม่มี Android SDK / Gradle)
-- ต้องดูผล GitHub Actions ครั้งแรกก่อนจึงจะยืนยันว่า APK สร้างได้สำเร็จ
+## V4.1 — Offline Price Fallback (Last-Known-Good)
+
+**หลักการ:** ราคาที่ดึงผ่านบริการแล้วตรวจสอบความถูกต้องจึงจะถูกบันทึกไว้ในเครื่องแบบแยกแหล่ง แต่ละราคาจะคงอยู่แม้ปิดแอปหรือเครื่องไม่มีอินเทอร์เน็ต และถูกแทนที่เมื่อได้รับข้อมูลใหม่ที่ผ่านการตรวจสอบและไม่ได้มีวันประกาศเก่ากว่าที่เก็บไว้
+
+- เปิดหน้าราคาน้ำมัน: โหลดราคาที่เก็บไว้ของ **PTT OR** และ **บางจาก** ทันที ก่อนพยายามดึงข้อมูลใหม่
+- เปิดทองไทย: โหลดชุดทองแท่ง 96.5% และทองรูปพรรณ 96.5% รับซื้อ/ขายออกครบ 4 ค่า
+- เปิดราคา Spot: โหลดราคาที่เก็บไว้แยกสำหรับ XAU, XAG, XPT, XPD; ไม่ใช้ราคาของโลหะอื่นแทน
+- หากดาวน์โหลดราคาล้มเหลว (ไม่มีเน็ต, timeout, HTTP error, JSON/XML ที่ไม่ถูกต้อง) ให้คงแคชเดิมบนหน้าจอพร้อมข้อความเตือน
+- เมื่อข้อมูลใหม่ผ่านการตรวจสอบ จะบันทึกใน `SharedPreferences` แบบคงอยู่ (ไม่ใช่แคชใน RAM เท่านั้น)
+- ป้องกันคำตอบจากต้นทางที่มีเวลาประกาศเก่ากว่าแคชมาทับข้อมูลล่าสุดที่เคยบันทึก
+- แสดง **เวลาประกาศจากต้นทาง** และ **เวลาที่บันทึกสำเร็จบนมือถือ** แยกกันตามเขตเวลา Asia/Bangkok
+- ทุกครั้งที่ใช้ราคาแคชจะระบุ **“ราคาล่าสุดที่บันทึกไว้ (ไม่ใช่ราคาสด)”** ด้วยสีเตือน แม้เพิ่งเปิดแท็บและกำลังตรวจสอบอินเทอร์เน็ต
+- ไม่กำหนดวันหมดอายุสำหรับการลบราคาแคชโดยอัตโนมัติ ตามความต้องการให้เก็บไว้จนกว่าจะอัปเดตได้ แต่จะแสดงสถานะข้อมูลเก่าให้เห็น
+- **Shell** ยังไม่มีแหล่งข้อมูลออนไลน์ที่ยืนยันสิทธิ์ได้ จึงไม่มีราคาแคช/ราคาอัตโนมัติของ Shell และไม่คัดลอกราคาจากแบรนด์อื่นมาใช้
+
+**ข้อจำกัด:** แอปต้องต่ออินเทอร์เน็ตและดึงราคาชนิดนั้นสำเร็จ *อย่างน้อยหนึ่งครั้ง* ก่อนจึงจะมีค่าให้ใช้งานแบบออฟไลน์ได้ ไม่มีราคาตั้งต้นที่กำหนดเอง แอปยังไม่รับประกันว่า API ปลายทางใช้งานได้จริงทุกกรณี และต้องทดสอบบน Android หลัง GitHub Actions Build สำเร็จ
+
+**การจัดเก็บ:** `SharedPreferences` ชื่อ `beat_calculator_market_cache_v1` อยู่ในพื้นที่ส่วนตัวของแอป จัดเก็บราคาด้วยค่าทศนิยมและข้อมูลแหล่งประกาศ ไม่เก็บรหัสผ่านหรือ API Key การถอนการติดตั้งหรือ Clear Data จะลบราคาสำรองด้วย หากอัปเดตด้วย APK ที่เซ็นคีย์เดิม ข้อมูลจะยังอยู่
+
+**ผลทดสอบซอร์สโค้ด:** 42 + 25 + 11 + 10 = **88 กรณี** (รวม CacheUpdatePolicy ใหม่) ยังไม่ได้ยืนยันคอมไพล์ APK หรือทดสอบการดึงข้อมูลสดบนโทรศัพท์
+
+**ไฟล์ที่เพิ่ม:** `PriceCache.java`, `CacheUpdatePolicy.java` และ `tests/CacheUpdatePolicyTest.java` ส่วน `MainActivity.java`, `app/build.gradle`, `.github/workflows/build-apk.yml` ได้รับการปรับแล้ว
