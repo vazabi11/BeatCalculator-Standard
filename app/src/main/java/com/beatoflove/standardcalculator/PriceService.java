@@ -51,34 +51,9 @@ public final class PriceService {
             return out.toString();
         } finally { con.disconnect(); }
     }
-    /** The response may be XML-escaped inside SOAP. Price parsing is delegated to OilPriceParser. */
-    private static String fetchPttSoap() throws Exception {
-        String payload="<?xml version=\"1.0\" encoding=\"utf-8\"?>"+
-          "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"+
-          "<soap:Body><CurrentOilPrice xmlns=\"http://www.pttor.com\">"+
-          "<Language>thai</Language></CurrentOilPrice></soap:Body></soap:Envelope>";
-        HttpURLConnection c=(HttpURLConnection)new URL(PTT_SOURCE).openConnection();
-        c.setRequestMethod("POST");c.setDoOutput(true);
-        c.setConnectTimeout(10000);c.setReadTimeout(12000);
-        c.setRequestProperty("Content-Type","text/xml; charset=utf-8");
-        c.setRequestProperty("SOAPAction","\"https://orapiweb.pttor.com/CurrentOilPrice\"");
-        byte[] bytes=payload.getBytes(StandardCharsets.UTF_8);
-        try {
-            c.getOutputStream().write(bytes);
-            int code=c.getResponseCode();
-            if(code!=200)throw new Exception("PTT HTTP "+code);
-            StringBuilder out=new StringBuilder();
-            try(BufferedReader b=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))) {
-                String line;
-                while((line=b.readLine())!=null){out.append(line);if(out.length()>500000)throw new Exception("PTT XML response too large");}
-            }
-            return out.toString();
-        } finally {c.disconnect();}
+    public static void ptt(Callback<OilPriceParser.Feed> cb) {
+        async(() -> PttOilService.fetchFeed(),cb);
     }
-
-public static void ptt(Callback<OilPriceParser.Feed> cb) {
-    async(() -> PttOilService.fetchFeed(), cb);
-}
     public static final class ThaiGoldData {
         public final double buyBar,sellBar,buyOrnament,sellOrnament;
         public final String publishedAt;
