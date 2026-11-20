@@ -49,19 +49,22 @@ jobs:
             app/src/main/java/com/beatoflove/standardcalculator/FreshnessPolicy.java \
             app/src/main/java/com/beatoflove/standardcalculator/OilPriceParser.java \
             tests/MarketFeedsTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/MarketTime.java \
+            tests/MarketTimeTest.java \
             tests/PttParserDiagnosticsTest.java
           java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
           java -cp tests/out com.beatoflove.standardcalculator.AdvancedFeaturesTest
           java -cp tests/out com.beatoflove.standardcalculator.MarketFeedsTest
           java -cp tests/out com.beatoflove.standardcalculator.CacheUpdatePolicyTest
           java -cp tests/out com.beatoflove.standardcalculator.PttParserDiagnosticsTest
+          java -cp tests/out com.beatoflove.standardcalculator.MarketTimeTest
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BeatCalculator-v5-debug-APK
+          name: SirawitLabs-Calculator-v5.1.0-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
