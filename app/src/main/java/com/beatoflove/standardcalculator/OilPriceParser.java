@@ -3,6 +3,8 @@ package com.beatoflove.standardcalculator;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,6 +55,10 @@ public final class OilPriceParser {
         if(ns.getLength()==0) ns=e.getElementsByTagNameNS("*",name);
         return ns.getLength()==0 ? "" : ns.item(0).getTextContent().trim();
     }
+    private static String firstChild(Element element, String... names) {
+        for(String name:names){String value=child(element,name);if(!value.isEmpty())return value;}
+        return "";
+    }
     private static String nestedXml(String text) {
         String x=text.trim();
         // SOAP XML escapes its inner XML; DOM usually decodes once. Some proxies double-escape it.
@@ -75,6 +81,8 @@ public final class OilPriceParser {
         Document table=parseXml(embedded);
         NodeList entries=table.getElementsByTagName("DataAccess");
         if(entries.getLength()==0) entries=nodes(table,"DataAccess");
+        if(entries.getLength()==0)entries=nodes(table,"Table");
+        if(entries.getLength()==0)entries=nodes(table,"OilPrice");
         if(entries.getLength()==0) throw new Exception("PTT: ไม่พบรายการ DataAccess ในข้อมูลราคาที่ได้รับ");
         int total=0,emptyNames=0,emptyPrice=0,invalidPrice=0;
         ArrayList<Item> output=new ArrayList<>();
@@ -82,14 +90,20 @@ public final class OilPriceParser {
             Node node=entries.item(i); if(!(node instanceof Element)) continue;
             total++;
             Element e=(Element) node;
-            String product=child(e,"PRODUCT"),rawPrice=child(e,"PRICE"),stamp=child(e,"PRICE_DATE");
+            String product=firstChild(e,"PRODUCT","PRODUCT_NAME","OilName","OIL_NAME","NAME");
+            String rawPrice=firstChild(e,"PRICE","Price","PriceToday","PRICE_TODAY","RetailPrice","RETAIL_PRICE");
+            String stamp=firstChild(e,"PRICE_DATE","PriceDate","OilPriceDate","PRICE_TIME");
             if(product.isEmpty()){emptyNames++;continue;}
             if(rawPrice.isEmpty()){emptyPrice++;continue;}
             try {
                 double price=Double.parseDouble(rawPrice.replace(",","").trim());
                 if(!Double.isFinite(price)||price<=0||price>=200){invalidPrice++;continue;}
                 long ms=0;
-                try {ms=OffsetDateTime.parse(stamp).toInstant().toEpochMilli();}catch(Exception ignored) {}
+                try {ms=OffsetDateTime.parse(stamp).toInstant().toEpochMilli();}
+                catch(Exception first) {
+                    try {ms=LocalDateTime.parse(stamp).atZone(ZoneId.of("Asia/Bangkok")).toInstant().toEpochMilli();}
+                    catch(Exception ignored) { /* no timestamp means never claim fresh */ }
+                }
                 output.add(new Item(product,price,stamp,ms));
             } catch(NumberFormatException ignored){invalidPrice++;}
         }

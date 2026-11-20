@@ -18,11 +18,11 @@ public final class PttOilService {
     private static String escapeXml(String raw) {
         return raw.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     }
-    private static String call(String operation, String parameters) throws Exception {
+    private static String call(String operation, String parameters, String language) throws Exception {
         String xml="<?xml version=\"1.0\" encoding=\"utf-8\"?>"+
             "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"+
             "<soap:Body><"+operation+" xmlns=\"http://www.pttor.com\">"+
-            "<Language>thai</Language>"+parameters+"</"+operation+"></soap:Body></soap:Envelope>";
+            "<Language>"+language+"</Language>"+parameters+"</"+operation+"></soap:Body></soap:Envelope>";
         HttpURLConnection conn=(HttpURLConnection)new URL(URL).openConnection();
         conn.setRequestMethod("POST");conn.setDoOutput(true);
         conn.setConnectTimeout(10000);conn.setReadTimeout(12000);
@@ -43,17 +43,21 @@ public final class PttOilService {
     }
     private static String getByDate(LocalDate day) throws Exception {
         String p="<DD>"+day.getDayOfMonth()+"</DD><MM>"+day.getMonthValue()+"</MM><YYYY>"+day.getYear()+"</YYYY>";
-        return call("GetOilPrice",p);
+        return call("GetOilPrice",p,"en");
     }
     public static OilPriceParser.Feed fetchFeed() throws Exception {
         // A connection or HTTP failure must not trigger a sequence of extra requests.
-        String currentResponse=call("CurrentOilPrice","");
+        String currentResponse=call("CurrentOilPrice","","en");
         String currentError="";
         try {
             return OilPriceParser.parse(currentResponse);
         } catch(Exception ex) {
             currentError=ex.getMessage()==null?"unknown":ex.getMessage();
         }
+        // Retry current prices in Thai only after a parse/empty-price failure.
+        try {
+            return OilPriceParser.parse(call("CurrentOilPrice","","th"));
+        } catch(Exception ignored) { /* Try dated feed with source timestamps */ }
         // Try previous days only when current lookup was unsuccessful; retain upstream timestamps.
         // Avoid frequent requests (the UI polls at its normal interval, not here).
         LocalDate now=LocalDate.now(BANGKOK);

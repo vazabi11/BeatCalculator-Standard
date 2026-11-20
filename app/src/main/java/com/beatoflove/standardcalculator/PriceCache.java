@@ -143,7 +143,8 @@ public final class PriceCache {
             JSONObject raw=new JSONObject().put("current",new JSONObject()
                     .put("buyBar",gold.buyBar).put("sellBar",gold.sellBar)
                     .put("buyOrnament",gold.buyOrnament).put("sellOrnament",gold.sellOrnament)
-                    .put("updatedAt",gold.publishedAt).put("updateRound",gold.updateRound));
+                    .put("updatedAt",gold.publishedAt).put("updateRound",gold.updateRound)
+                    .put("source",gold.source));
             // Reparse to validate all four fields before persisting.
             PriceService.parseThaiGold(raw.toString());
             return write(c,THAI_GOLD,raw,epoch(gold.publishedAt));
@@ -151,7 +152,12 @@ public final class PriceCache {
     }
     public static Snapshot<PriceService.ThaiGoldData> getThaiGold(Context c) {
         Snapshot<JSONObject> cached=read(c,THAI_GOLD);if(cached==null)return null;
-        try {return new Snapshot<>(PriceService.parseThaiGold(cached.data.toString()),cached.savedAtMillis,cached.publisherMillis);}
+        try {PriceService.ThaiGoldData value=PriceService.parseThaiGold(cached.data.toString());
+            String source=cached.data.optJSONObject("current").optString("source","ThaiGoldToday");
+            if(!"ThaiGoldToday".equals(source)) value=new PriceService.ThaiGoldData(
+                    value.buyBar,value.sellBar,value.buyOrnament,value.sellOrnament,
+                    value.publishedAt,value.fresh,value.updateRound,source);
+            return new Snapshot<>(value,cached.savedAtMillis,cached.publisherMillis);}
         catch(Exception ex){return null;}
     }
     private static String metalKey(String symbol) {

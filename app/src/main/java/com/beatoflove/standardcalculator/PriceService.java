@@ -22,6 +22,7 @@ public final class PriceService {
     public static final String METAL_SOURCE="https://api.gold-api.com/price/";
     public static final String PTT_SOURCE="https://orapiweb.pttor.com/oilservice/OilPrice.asmx";
     public static final String THAI_GOLD_SOURCE="https://www.thaigoldtoday.com/api/gold-price";
+    public static final String THAI_GOLD_BACKUP_SOURCE="https://rakhagold.com/wp-json/priceradar/v1/gold/latest";
     private PriceService() { }
 
     public interface Callback<T> { void done(T value, String error); }
@@ -51,21 +52,66 @@ public final class PriceService {
             return out.toString();
         } finally { con.disconnect(); }
     }
+    /** The response may be XML-escaped inside SOAP. Price parsing is delegated to OilPriceParser. */
+    private static String fetchPttSoap() throws Exception {
+        String payload="<?xml version=\"1.0\" encoding=\"utf-8\"?>"+
+          "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"+
+          "<soap:Body><CurrentOilPrice xmlns=\"http://www.pttor.com\">"+
+          "<Language>thai</Language></CurrentOilPrice></soap:Body></soap:Envelope>";
+        HttpURLConnection c=(HttpURLConnection)new URL(PTT_SOURCE).openConnection();
+        c.setRequestMethod("POST");c.setDoOutput(true);
+        c.setConnectTimeout(10000);c.setReadTimeout(12000);
+        c.setRequestProperty("Content-Type","text/xml; charset=utf-8");
+        c.setRequestProperty("SOAPAction","\"https://orapiweb.pttor.com/CurrentOilPrice\"");
+        byte[] bytes=payload.getBytes(StandardCharsets.UTF_8);
+        try {
+            c.getOutputStream().write(bytes);
+            int code=c.getResponseCode();
+            if(code!=200)throw new Exception("PTT HTTP "+code);
+            StringBuilder out=new StringBuilder();
+            try(BufferedReader b=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))) {
+                String line;
+                while((line=b.readLine())!=null){out.append(line);if(out.length()>500000)throw new Exception("PTT XML response too large");}
+            }
+            return out.toString();
+        } finally {c.disconnect();}
+    }
     public static void ptt(Callback<OilPriceParser.Feed> cb) {
         async(() -> PttOilService.fetchFeed(),cb);
+    }
+    private static String marketError(Exception ex) {
+        String message=ex.getMessage()==null?"ไม่สามารถอ่านข้อมูลได้":ex.getMessage();
+        if(message.contains("HTTP 402"))return "จำกัดสิทธิ์การเข้าถึง (402)";
+        if(message.contains("HTTP 429"))return "เกินจำนวนครั้งที่อนุญาต (429)";
+        if(message.contains("HTTP 403"))return "ถูกปฏิเสธการเข้าถึง (403)";
+        return message.length()>100?message.substring(0,100):message;
     }
     public static final class ThaiGoldData {
         public final double buyBar,sellBar,buyOrnament,sellOrnament;
         public final String publishedAt;
         public final boolean fresh;
         public final int updateRound;
+        public final String source;
         ThaiGoldData(double a,double b,double c,double d,String at,boolean fresh,int round){
+            this(a,b,c,d,at,fresh,round,"ThaiGoldToday");
+        }
+        ThaiGoldData(double a,double b,double c,double d,String at,boolean fresh,int round,String source){
             this.buyBar=a;this.sellBar=b;this.buyOrnament=c;this.sellOrnament=d;
-            this.publishedAt=at;this.fresh=fresh;this.updateRound=round;
+            this.publishedAt=at;this.fresh=fresh;this.updateRound=round;this.source=source;
         }
     }
     public static void thaiGold(Callback<ThaiGoldData> cb) {
-        async(() -> parseThaiGold(read(THAI_GOLD_SOURCE)),cb);
+        async(() -> {
+            String originalFailure="";
+            try { return parseThaiGold(read(THAI_GOLD_SOURCE)); }
+            catch(Exception e) { originalFailure=marketError(e); }
+            // Independently documented, attribution-required public fallback.
+            try { return GoldFallbackParser.parse(read(THAI_GOLD_BACKUP_SOURCE)); }
+            catch(Exception e) {
+                throw new Exception("แหล่งราคาทองไทยไม่พร้อม — ThaiGoldToday: "
+                    +originalFailure+"; Rakhagold: "+marketError(e));
+            }
+        },cb);
     }
     public static ThaiGoldData parseThaiGold(String json) throws Exception {
         JSONObject current=new JSONObject(json).optJSONObject("current");
@@ -79,7 +125,7 @@ public final class PriceService {
         try {ms=Instant.parse(stamp).toEpochMilli();}
         catch(Exception ex){try{ms=java.time.OffsetDateTime.parse(stamp).toInstant().toEpochMilli();}catch(Exception ignored){}}
         boolean fresh=FreshnessPolicy.isRecent(ms,System.currentTimeMillis(),24L*60*60*1000);
-        return new ThaiGoldData(buyBar,sellBar,buyOrn,sellOrn,stamp,fresh,current.optInt("updateRound",0));
+        return new ThaiGoldData(buyBar,sellBar,buyOrn,sellOrn,stamp,fresh,current.optInt("updateRound",0),current.optString("source","ThaiGoldToday"));
     }
     public static final class FuelItem {
         public final String name; public final double price;
