@@ -75,9 +75,10 @@ public final class PriceService {
             return out.toString();
         } finally {c.disconnect();}
     }
-    public static void ptt(Callback<OilPriceParser.Feed> cb) {
-        async(() -> OilPriceParser.parse(fetchPttSoap()),cb);
-    }
+
+public static void ptt(Callback<OilPriceParser.Feed> cb) {
+    async(() -> PttOilService.fetchFeed(), cb);
+}
     public static final class ThaiGoldData {
         public final double buyBar,sellBar,buyOrnament,sellOrnament;
         public final String publishedAt;
