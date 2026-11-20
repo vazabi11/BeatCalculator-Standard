@@ -16,28 +16,48 @@ def fetch(name,url,body=None,headers=None):
         print('NETWORK:',type(e).__name__,str(e)[:150])
     return None
 
-soap='''<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-<soap:Body><CurrentOilPrice xmlns="http://www.pttor.com"><Language>en</Language></CurrentOilPrice></soap:Body></soap:Envelope>'''.encode()
-response=fetch('PTT OR SOAP','https://orapiweb.pttor.com/oilservice/OilPrice.asmx',soap,{
- 'Content-Type':'text/xml; charset=utf-8',
- 'SOAPAction':'"https://orapiweb.pttor.com/CurrentOilPrice"',
- 'User-Agent':'BeatCalculator-V5-Diagnostic/1.0'})
-if response:
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from collections import Counter
+
+def local(tag): return tag.rsplit('}',1)[-1]
+def inspect_ptt(operation,lang,date=None):
+    extra='' if date is None else f'<DD>{date.day}</DD><MM>{date.month}</MM><YYYY>{date.year}</YYYY>'
+    body=f'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><{operation} xmlns="http://www.pttor.com"><Language>{lang}</Language>{extra}</{operation}></soap:Body></soap:Envelope>'.encode()
+    response=fetch(f'PTT {operation} {lang} {date or ""}','https://orapiweb.pttor.com/oilservice/OilPrice.asmx',body,{'Content-Type':'text/xml; charset=utf-8','SOAPAction':f'"https://orapiweb.pttor.com/{operation}"','User-Agent':'SirawitLabs-Calculator/5.1 Diagnostics'})
+    if not response:return False
     try:
         outer=ET.fromstring(response)
-        results=[x for x in outer.iter() if x.tag.rsplit('}',1)[-1].endswith('OilPriceResult')]
+        results=[x for x in outer.iter() if local(x.tag)==operation+'Result']
         print('Result elements:',len(results))
-        if results:
-            inner=html.unescape(''.join(results[0].itertext()).strip())
+        if not results:return False
+        node=results[0]
+        if len(node):doc=node
+        else:
+            inner=(node.text or '').strip()
+            for _ in range(2):
+                if inner.startswith('&lt;') or inner.startswith('&amp;lt;'):inner=html.unescape(inner)
             doc=ET.fromstring(inner)
-            rows=[x for x in doc.iter() if x.tag.rsplit('}',1)[-1] in ('DataAccess','Table','OilPrice')]
-            print('Row candidates:',len(rows))
-            if rows:
-                print('First row fields:',[x.tag.rsplit('}',1)[-1] for x in rows[0]][:35])
-                prices=[x.text for row in rows for x in row if x.tag.rsplit('}',1)[-1].upper() in ('PRICE','RETAIL_PRICE','PRICETODAY')]
-                print('Price fields:',len(prices),'nonempty:',sum(bool(str(x).strip()) for x in prices))
-    except Exception as e:print('XML diagnostic:',type(e).__name__,str(e)[:150])
+        print('Root:',local(doc.tag),'element tags:',dict(Counter(local(x.tag) for x in doc.iter()).most_common(35)))
+        valid=0
+        for row in doc.iter():
+            fields={local(c.tag).upper():c.text for c in row}
+            name=next((fields[k] for k in ('PRODUCT','PRODUCT_NAME','OILNAME','OIL_NAME','NAME','PRODUCTNAME') if fields.get(k)),None)
+            price=next((fields[k] for k in ('PRICE','PRICE_TODAY','PRICETODAY','RETAIL_PRICE','RETAILPRICE','PRICE_VALUE','SELLINGPRICE') if fields.get(k)),None)
+            if name and price:
+                try:
+                    if 0<float(price.replace(',',''))<200:valid+=1;print('Valid row:',str(name)[:90],price,fields.get('PRICE_DATE',fields.get('PRICEDATE','')))
+                except ValueError:pass
+        print('Valid price rows:',valid)
+        return valid>0
+    except Exception as e:print('XML diagnostic:',type(e).__name__,str(e)[:150]);return False
+ptt_ok=inspect_ptt('CurrentOilPrice','EN') or inspect_ptt('CurrentOilPrice','TH')
+if not ptt_ok:
+    today=datetime.now(ZoneInfo('Asia/Bangkok')).date()
+    for i in range(4):
+        if inspect_ptt('GetOilPrice','EN',today-timedelta(days=i)):ptt_ok=True;break
+print('PTT price rows available:',ptt_ok)
+
 for title,url in [('ThaiGoldToday','https://www.thaigoldtoday.com/api/gold-price'),
                   ('Rakhagold','https://rakhagold.com/wp-json/priceradar/v1/gold/latest')]:
     response=fetch(title,url)
@@ -49,3 +69,7 @@ for title,url in [('ThaiGoldToday','https://www.thaigoldtoday.com/api/gold-price
                 for key in ('current','data','latest','result'):
                     if isinstance(data.get(key),dict): print(key,'keys:',list(data[key])[:24])
         except Exception as e:print('JSON diagnostic:',type(e).__name__,str(e)[:100])
+
+# The public oil API's response schema has not yet been verified; record structure only.
+# Avoid calling both Rakhagold endpoints within one minute (provider rate limit).
+print('Rakhagold oil endpoint documented at https://rakhagold.com/api-docs/; not enabled until payload is verified.')

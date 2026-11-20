@@ -34,7 +34,7 @@ public final class GoldFallbackParser {
         if(o==null)return "";
         String[] keys={"updatedAt","updated_at","announcedAt","announced_at","timestamp","publishedAt","price_date"};
         for(String k:keys){String s=o.optString(k,"").trim();if(!s.isEmpty())return s;}
-        return "";
+        return MarketTime.normalize(o.optString("date",""),o.optString("as_time",""));
     }
     private static boolean verifiedTime(String stamp) {
         try {return Instant.parse(stamp).toEpochMilli()>0;}
@@ -43,10 +43,10 @@ public final class GoldFallbackParser {
     private static PriceService.ThaiGoldData decode(JSONObject object, String origin) throws Exception {
         JSONObject bar=nested(object,"gold_bar","goldBar","bar","goldbar","gold_bar_965");
         JSONObject ornament=nested(object,"ornament","gold_ornament","goldOrnament","jewelry","gold_jewelry");
-        double bb=bar==null?number(object,"buyBar","buy_bar","goldBarBuy","gold_bar_buy"):number(bar,"buy","buyPrice","bid","buy_price");
-        double bs=bar==null?number(object,"sellBar","sell_bar","goldBarSell","gold_bar_sell"):number(bar,"sell","sellPrice","ask","sell_price");
-        double ob=ornament==null?number(object,"buyOrnament","buy_ornament","ornamentBuy","ornament_buy"):number(ornament,"buy","buyPrice","bid","buy_price");
-        double os=ornament==null?number(object,"sellOrnament","sell_ornament","ornamentSell","ornament_sell"):number(ornament,"sell","sellPrice","ask","sell_price");
+        double bb=bar==null?number(object,"bar_buy","buyBar","buy_bar","goldBarBuy","gold_bar_buy"):number(bar,"buy","buyPrice","bid","buy_price");
+        double bs=bar==null?number(object,"bar_sell","sellBar","sell_bar","goldBarSell","gold_bar_sell"):number(bar,"sell","sellPrice","ask","sell_price");
+        double ob=ornament==null?number(object,"orn_buy","buyOrnament","buy_ornament","ornamentBuy","ornament_buy"):number(ornament,"buy","buyPrice","bid","buy_price");
+        double os=ornament==null?number(object,"orn_sell","sellOrnament","sell_ornament","ornamentSell","ornament_sell"):number(ornament,"sell","sellPrice","ask","sell_price");
         for(double n:new double[]{bb,bs,ob,os})if(!Double.isFinite(n))throw new Exception("ไม่พบราคาทองไทยครบทั้ง 4 ช่อง");
         if(bs<bb || os<ob)throw new Exception("ราคาซื้อขายกลับด้าน");
         String timestamp=stamp(object);
@@ -55,7 +55,7 @@ public final class GoldFallbackParser {
         long updated=PriceCache.epoch(timestamp);
         if(updated>System.currentTimeMillis()+10*60_000L)throw new Exception("เวลาประกาศเป็นอนาคต");
         boolean fresh=FreshnessPolicy.isRecent(updated,System.currentTimeMillis(),24L*60*60*1000L);
-        int round=object.optInt("updateRound",object.optInt("announceNo",object.optInt("round",0)));
+        int round=object.optInt("updateRound",object.optInt("announceNo",object.optInt("round",object.optInt("seq",0))));
         return new PriceService.ThaiGoldData(bb,bs,ob,os,timestamp,fresh,round,origin);
     }
     public static PriceService.ThaiGoldData parse(String raw) throws Exception {

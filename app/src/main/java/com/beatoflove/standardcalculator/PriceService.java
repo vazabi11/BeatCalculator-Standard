@@ -41,7 +41,7 @@ public final class PriceService {
         HttpURLConnection con=(HttpURLConnection)new URL(endpoint).openConnection();
         con.setConnectTimeout(10000); con.setReadTimeout(10000);
         con.setRequestProperty("Accept","application/json");
-        con.setRequestProperty("User-Agent","BeatCalculator/4.0 (Android)");
+        con.setRequestProperty("User-Agent","SirawitLabs-Calculator/5.1 (Android)");
         try {
             int code=con.getResponseCode();
             if(code!=200) throw new Exception("HTTP "+code);
@@ -52,29 +52,15 @@ public final class PriceService {
             return out.toString();
         } finally { con.disconnect(); }
     }
-    /** The response may be XML-escaped inside SOAP. Price parsing is delegated to OilPriceParser. */
-    private static String fetchPttSoap() throws Exception {
-        String payload="<?xml version=\"1.0\" encoding=\"utf-8\"?>"+
-          "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"+
-          "<soap:Body><CurrentOilPrice xmlns=\"http://www.pttor.com\">"+
-          "<Language>thai</Language></CurrentOilPrice></soap:Body></soap:Envelope>";
-        HttpURLConnection c=(HttpURLConnection)new URL(PTT_SOURCE).openConnection();
-        c.setRequestMethod("POST");c.setDoOutput(true);
-        c.setConnectTimeout(10000);c.setReadTimeout(12000);
-        c.setRequestProperty("Content-Type","text/xml; charset=utf-8");
-        c.setRequestProperty("SOAPAction","\"https://orapiweb.pttor.com/CurrentOilPrice\"");
-        byte[] bytes=payload.getBytes(StandardCharsets.UTF_8);
-        try {
-            c.getOutputStream().write(bytes);
-            int code=c.getResponseCode();
-            if(code!=200)throw new Exception("PTT HTTP "+code);
-            StringBuilder out=new StringBuilder();
-            try(BufferedReader b=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))) {
-                String line;
-                while((line=b.readLine())!=null){out.append(line);if(out.length()>500000)throw new Exception("PTT XML response too large");}
-            }
-            return out.toString();
-        } finally {c.disconnect();}
+    // Public Rakhagold API permits at most one call per minute; share the last response
+    // within this process, including failures, to protect against repeated refresh taps.
+    private static long goldAttempt=-60_000L;
+    private static String goldBody,goldError;
+    private static synchronized String readRakhagold() throws Exception {
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(now-goldAttempt<60_000L){if(goldBody!=null)return goldBody;throw new Exception(goldError==null?"รอรอบอัปเดต":goldError);}
+        goldAttempt=now;goldBody=null;goldError=null;
+        try{return goldBody=read(THAI_GOLD_BACKUP_SOURCE);}catch(Exception ex){goldError=ex.getMessage();throw ex;}
     }
     public static void ptt(Callback<OilPriceParser.Feed> cb) {
         async(() -> PttOilService.fetchFeed(),cb);
@@ -103,13 +89,13 @@ public final class PriceService {
     public static void thaiGold(Callback<ThaiGoldData> cb) {
         async(() -> {
             String originalFailure="";
-            try { return parseThaiGold(read(THAI_GOLD_SOURCE)); }
+            try { return GoldFallbackParser.parse(readRakhagold()); }
             catch(Exception e) { originalFailure=marketError(e); }
-            // Independently documented, attribution-required public fallback.
-            try { return GoldFallbackParser.parse(read(THAI_GOLD_BACKUP_SOURCE)); }
+            // Alternate source may require access authorization.
+            try { return parseThaiGold(read(THAI_GOLD_SOURCE)); }
             catch(Exception e) {
-                throw new Exception("แหล่งราคาทองไทยไม่พร้อม — ThaiGoldToday: "
-                    +originalFailure+"; Rakhagold: "+marketError(e));
+                throw new Exception("แหล่งราคาทองไทยไม่พร้อม — Rakhagold: "
+                    +originalFailure+"; ThaiGoldToday: "+marketError(e));
             }
         },cb);
     }

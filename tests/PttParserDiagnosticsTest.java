@@ -33,6 +33,10 @@ public final class PttParserDiagnosticsTest {
         try{OilPriceParser.parse("<soap:Envelope xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body><soap:Fault>bad request</soap:Fault></soap:Body></soap:Envelope>");}
         catch(Exception ex){fault=ex.getMessage().contains("Fault");}
         check(fault,"SOAP fault");
+        String nested="<CurrentOilPriceResult><PTT_DS><ProductRow><ProductName>Gasohol 95</ProductName><SellingPrice>33.25</SellingPrice><PRICE_DATE>2026-01-19T05:00:00+07:00</PRICE_DATE></ProductRow></PTT_DS></CurrentOilPriceResult>";
+        check(OilPriceParser.parse(nested).items.size()==1,"direct nested XML with new row tag");
+        String caseVariant="<PTT_DS><OtherRow><product>Gasohol 91</product><price>32.15</price></OtherRow></PTT_DS>";
+        check(OilPriceParser.parse(wrap("CurrentOilPrice",caseVariant)).items.get(0).price==32.15,"case-insensitive explicit XML fields");
         System.out.println("PASS "+count+" PTT diagnostic tests");
     }
 }

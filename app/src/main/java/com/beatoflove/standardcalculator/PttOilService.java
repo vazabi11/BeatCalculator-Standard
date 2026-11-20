@@ -28,7 +28,7 @@ public final class PttOilService {
         conn.setConnectTimeout(10000);conn.setReadTimeout(12000);
         conn.setRequestProperty("Content-Type","text/xml; charset=utf-8");
         conn.setRequestProperty("SOAPAction","\""+ACTION+operation+"\"");
-        conn.setRequestProperty("User-Agent","BeatCalculator/4.2 Android");
+        conn.setRequestProperty("User-Agent","SirawitLabs-Calculator/5.1 Android");
         try {
             byte[] bytes=xml.getBytes(StandardCharsets.UTF_8);
             try(java.io.OutputStream out=conn.getOutputStream()) {out.write(bytes);}
@@ -43,11 +43,11 @@ public final class PttOilService {
     }
     private static String getByDate(LocalDate day) throws Exception {
         String p="<DD>"+day.getDayOfMonth()+"</DD><MM>"+day.getMonthValue()+"</MM><YYYY>"+day.getYear()+"</YYYY>";
-        return call("GetOilPrice",p,"en");
+        return call("GetOilPrice",p,"EN");
     }
     public static OilPriceParser.Feed fetchFeed() throws Exception {
         // A connection or HTTP failure must not trigger a sequence of extra requests.
-        String currentResponse=call("CurrentOilPrice","","en");
+        String currentResponse=call("CurrentOilPrice","","EN");
         String currentError="";
         try {
             return OilPriceParser.parse(currentResponse);
@@ -56,12 +56,12 @@ public final class PttOilService {
         }
         // Retry current prices in Thai only after a parse/empty-price failure.
         try {
-            return OilPriceParser.parse(call("CurrentOilPrice","","th"));
+            return OilPriceParser.parse(call("CurrentOilPrice","","TH"));
         } catch(Exception ignored) { /* Try dated feed with source timestamps */ }
         // Try previous days only when current lookup was unsuccessful; retain upstream timestamps.
         // Avoid frequent requests (the UI polls at its normal interval, not here).
         LocalDate now=LocalDate.now(BANGKOK);
-        for(int daysBack=1;daysBack<=3;daysBack++) {
+        for(int daysBack=0;daysBack<=3;daysBack++) {
             try {
                 OilPriceParser.Feed result=OilPriceParser.parse(getByDate(now.minusDays(daysBack)));
                 if(result!=null && !result.items.isEmpty()) return result;
