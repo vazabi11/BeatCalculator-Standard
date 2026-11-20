@@ -11,3 +11,7 @@ jobs:
           python-version: '3.12'
       - name: Inspect public endpoint statuses and field names
         run: python tests/live_market_probe.py
+      - name: Install public stream diagnostic dependency
+        run: python -m pip install websocket-client==1.8.0
+      - name: Verify reference and public crypto stream
+        run: python tests/live_market_v53.py
