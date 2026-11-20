@@ -44,21 +44,26 @@ import java.util.Locale;
 
 /** Native calculator with seven modes and offline last-known-good market prices. */
 public final class MainActivity extends Activity {
-    private static final int BG=0xff10161c, HEADER=0xff10161c, WHITE=Color.WHITE, MUTED=0xff9b9b9b;
-    private static final int FUNCTION=0xff252e37, DIGIT=0xff303942, BLUE=0xff4cc2ff, WARNING=0xffffba57;
-    private static final String[] MODES={"Basic","Standard","Advance","Science","แปลงหน่วย","ราคาน้ำมัน","ราคาโลหะ"};
+    private static final int BG=0xff0b141d, HEADER=0xff0b141d, WHITE=Color.WHITE, MUTED=0xff90a4b7;
+    private static final int FUNCTION=0xff142735, DIGIT=0xff233441, BLUE=0xff35c6f4, WARNING=0xffffba57;
+    private static final String[] MODES={"","Standard","Scientific","Formula Pro","Converter","Fuel","Markets","Financial","Currency"};
+    private static final int[] NAV={1,2,3,7,8,5,6,4};
+    private FinancialPanel financialPanel; private CurrencyPanel currencyPanel; private MarketStream stream;
+    private Spinner provincePicker,districtPicker; private EditText districtName; private boolean paused=false;
+    private static final String[] PROVINCES=("Bangkok reference|กรุงเทพมหานคร|กระบี่|กาญจนบุรี|กาฬสินธุ์|กำแพงเพชร|ขอนแก่น|จันทบุรี|ฉะเชิงเทรา|ชลบุรี|ชัยนาท|ชัยภูมิ|ชุมพร|เชียงราย|เชียงใหม่|ตรัง|ตราด|ตาก|นครนายก|นครปฐม|นครพนม|นครราชสีมา|นครศรีธรรมราช|นครสวรรค์|นนทบุรี|นราธิวาส|น่าน|บึงกาฬ|บุรีรัมย์|ปทุมธานี|ประจวบคีรีขันธ์|ปราจีนบุรี|ปัตตานี|พระนครศรีอยุธยา|พะเยา|พังงา|พัทลุง|พิจิตร|พิษณุโลก|เพชรบุรี|เพชรบูรณ์|แพร่|ภูเก็ต|มหาสารคาม|มุกดาหาร|แม่ฮ่องสอน|ยโสธร|ยะลา|ร้อยเอ็ด|ระนอง|ระยอง|ราชบุรี|ลพบุรี|ลำปาง|ลำพูน|เลย|ศรีสะเกษ|สกลนคร|สงขลา|สตูล|สมุทรปราการ|สมุทรสงคราม|สมุทรสาคร|สระแก้ว|สระบุรี|สิงห์บุรี|สุโขทัย|สุพรรณบุรี|สุราษฎร์ธานี|สุรินทร์|หนองคาย|หนองบัวลำภู|อ่างทอง|อำนาจเจริญ|อุดรธานี|อุตรดิตถ์|อุทัยธานี|อุบลราชธานี").split("\\|");
     private static final String[] METALS={"ทองคำ (Gold / XAU)","เงิน (Silver / XAG)","แพลทินัม (Platinum / XPT)","พัลลาเดียม (Palladium / XPD)"};
     private static final String[] SYMBOLS={"XAU","XAG","XPT","XPD"};
     private final CalculatorEngine engine=new CalculatorEngine();
+    private FormulaPanel formulaPanel;
     private LinearLayout root, page, tabsRow;
     private HorizontalScrollView tabsScroll, resultScroll;
     private TextView result, expr, hint, memoryClear, memoryRecall, memoryArrow;
     private int currentMode=1, fetchToken=0;
     private boolean full=false, updatingUnit=false;
     private String selectedMetal="XAU";
-    private static final String[] FUEL_BRANDS={"เปรียบเทียบ","PTT OR","บางจาก"};
+    private static final String[] FUEL_BRANDS={"All Brands","PTT OR","Bangchak"};
     private static final String[] FUEL_TYPES={"ทั้งหมด","Gasohol 91","Gasohol 95","E20","E85","Diesel"};
-    private Spinner fuelBrand, goldMarket, metalPicker;
+    private Spinner fuelBrand, goldMarket, metalPicker, metalMode;
     private OilPriceParser.Feed latestPtt;
     private String pttProblem,bangchakProblem;
     private boolean pttCached,bangchakCached;
@@ -67,7 +72,7 @@ public final class MainActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable periodic= new Runnable(){@Override public void run(){
         if(currentMode==5){loadFuel();handler.postDelayed(this,15*60*1000L);}
-        else if(currentMode==6){loadMetal();handler.postDelayed(this,5*60*1000L);}
+        else if(currentMode==6&&marketIndex()<2){loadMetal();handler.postDelayed(this,marketIndex()==0?60*1000L:5*60*1000L);}
     }};
     private LinearLayout liveResults;
     private TextView liveStatus;
@@ -79,9 +84,9 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle saved){super.onCreate(saved);getWindow().setStatusBarColor(HEADER);
         getWindow().setNavigationBarColor(HEADER);restore();buildShell();selectMode(1);}
-    @Override protected void onPause(){handler.removeCallbacks(periodic);super.onPause();}
-    @Override protected void onResume(){super.onResume();if(root!=null&&currentMode>=5)startPolling();}
-    @Override protected void onDestroy(){handler.removeCallbacks(periodic);fetchToken++;super.onDestroy();}
+    @Override protected void onPause(){paused=true;fetchToken++;handler.removeCallbacks(periodic);if(stream!=null)stream.stop();if(currencyPanel!=null)currencyPanel.stop();super.onPause();}
+    @Override protected void onResume(){super.onResume();paused=false;if(root!=null&&(currentMode==5||currentMode==6))startPolling();else if(root!=null&&currentMode==8&&currencyPanel!=null)currencyPanel.resume();}
+    @Override protected void onDestroy(){handler.removeCallbacks(periodic);fetchToken++;if(stream!=null)stream.stop();if(currencyPanel!=null)currencyPanel.stop();super.onDestroy();}
 
     private void buildShell(){
         root=vertical();root.setBackgroundColor(BG);root.setPadding(dp(4),dp(2),dp(4),dp(5));setContentView(root);
@@ -106,26 +111,31 @@ public final class MainActivity extends Activity {
         page=vertical();root.addView(page,new LinearLayout.LayoutParams(-1,0,1));
     }
     private void selectMode(int mode){
-        if(mode<0||mode>=MODES.length)return;
+        if(mode<1||mode>=MODES.length)return;
+        if(stream!=null)stream.stop();if(currencyPanel!=null)currencyPanel.stop();
+        if(currentMode==3&&formulaPanel!=null)formulaPanel.save();
         fetchToken++;handler.removeCallbacks(periodic);currentMode=mode;
         tabsRow.removeAllViews();
-        for(int i=0;i<MODES.length;i++){
+        for(int i:NAV){
             final int n=i;
             TextView tab=label(MODES[i],i==mode?16:14,WHITE,i==mode);
-            tab.setPadding(dp(11),0,dp(11),0);tab.setGravity(Gravity.CENTER);tab.setBackground(ripple(i==mode?0xff087fca:BG,dp(10)));
+            tab.setPadding(dp(11),0,dp(11),0);tab.setGravity(Gravity.CENTER);tab.setBackground(ripple(i==mode?0xff075b82:BG,dp(10)));
             tab.setOnClickListener(v->selectMode(n));tabsRow.addView(tab,new LinearLayout.LayoutParams(-2,dp(40)));
             if(i==mode){tabsScroll.post(()->tabsScroll.smoothScrollTo(Math.max(0,tab.getLeft()-dp(60)),0));}
         }
         page.removeAllViews();result=null;expr=null;resultScroll=null;liveResults=null;liveStatus=null;
         memoryClear=null;memoryRecall=null;memoryArrow=null;fuelFilter=null;fuelBrand=null;
-        goldMarket=null;metalPicker=null;latestFuel=null;latestPtt=null;pttProblem=null;bangchakProblem=null;
+        goldMarket=null;metalPicker=null;metalMode=null;latestFuel=null;latestPtt=null;pttProblem=null;bangchakProblem=null;
         pttFinished=false;bangchakFinished=false;
         pttCached=false;bangchakCached=false;pttCachedAt=0;bangchakCachedAt=0;
-        if(mode<=3)buildCalculator(mode);
+        if(mode<=2)buildCalculator(mode);
+        else if(mode==3){if(formulaPanel==null)formulaPanel=new FormulaPanel(this);formulaPanel.attach(page);}
         else if(mode==4)buildUnits();
         else if(mode==5)buildPrice(true);
-        else buildPrice(false);
-        if(mode>=5)startPolling();
+        else if(mode==6)buildPrice(false);
+        else if(mode==7){if(financialPanel==null)financialPanel=new FinancialPanel(this);financialPanel.attach(page);}
+        else if(mode==8){if(currencyPanel==null)currencyPanel=new CurrencyPanel(this);currencyPanel.attach(page);}
+        if(mode==5||mode==6)startPolling();
     }
     private void buildCalculator(int mode){
         LinearLayout modeBar=horizontal();modeBar.setGravity(Gravity.CENTER_VERTICAL);
@@ -137,7 +147,7 @@ public final class MainActivity extends Activity {
         modeBar.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));
         modeBar.addView(action("◴",dp(52),this::showHistory));
         LinearLayout display=vertical();display.setGravity(Gravity.BOTTOM|Gravity.RIGHT);display.setPadding(dp(8),dp(3),dp(13),dp(4));
-        page.addView(display,new LinearLayout.LayoutParams(-1,0,1));
+        display.setBackground(bordered(0xff102531,0xff304c5c,9));page.addView(display,new LinearLayout.LayoutParams(-1,0,1));
         expr=label("",16,MUTED,false);expr.setSingleLine(true);expr.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         display.addView(expr,new LinearLayout.LayoutParams(-1,dp(30)));
         resultScroll=new HorizontalScrollView(this);resultScroll.setHorizontalScrollBarEnabled(false);resultScroll.setFillViewport(true);
@@ -157,7 +167,7 @@ public final class MainActivity extends Activity {
                 if("MC".equals(k))memoryClear=b;if("MR".equals(k))memoryRecall=b;if("M▾".equals(k))memoryArrow=b;
             }
         }
-        if(mode==3){
+        if(mode==2){
             LinearLayout options=horizontal();page.addView(options,new LinearLayout.LayoutParams(-1,dp(35)));
             TextView deg=label(engine.isDegreeMode()?"DEG  (แตะเพื่อเปลี่ยน RAD)":"RAD  (แตะเพื่อเปลี่ยน DEG)",12,BLUE,false);
             deg.setGravity(Gravity.CENTER_VERTICAL);deg.setPadding(dp(12),0,0,0);
@@ -171,10 +181,6 @@ public final class MainActivity extends Activity {
         else if(mode==1)keys=new String[][]{
             {"%","CE","C","⌫"},{"1/x","x²","√x","÷"},{"7","8","9","×"},{"4","5","6","−"},{"1","2","3","+"},{"±","0",".","="}
         };
-        else if(mode==2)keys=new String[][]{
-            {"%","CE","C","⌫"},{"x²","√x","1/x","÷"},{"^","mod","cube","abs"},
-            {"7","8","9","×"},{"4","5","6","−"},{"1","2","3","+"},{"±","0",".","="}
-        };
         else keys=new String[][]{
             {"sin","cos","tan","π","C"},{"asin","acos","atan","e","⌫"},
             {"ln","log","exp","10^x","÷"},{"n!","x²","√x","^","×"},
@@ -183,12 +189,12 @@ public final class MainActivity extends Activity {
         };
         DisplayMetrics screen=getResources().getDisplayMetrics();
         int heightDp=Math.round(screen.heightPixels/screen.density);
-        int dpHeight=Math.min(mode==3?530:510,Math.max(mode==3?350:290,Math.round(heightDp*(mode==3?.57f:.55f))));
+        int dpHeight=Math.min(mode==2?530:510,Math.max(mode==2?350:290,Math.round(heightDp*(mode==2?.57f:.55f))));
         LinearLayout keypad=vertical();page.addView(keypad,new LinearLayout.LayoutParams(-1,dp(dpHeight)));
         for(String[] keysRow:keys){
             LinearLayout row=horizontal();keypad.addView(row,new LinearLayout.LayoutParams(-1,0,1));
             for(String k:keysRow){
-                TextView b=label("1/x".equals(k)?"¹⁄ₓ":k,mode==3?18:25,"=".equals(k)?Color.BLACK:WHITE,false);
+                TextView b=label("1/x".equals(k)?"¹⁄ₓ":k,mode==2?18:25,"=".equals(k)?Color.BLACK:WHITE,false);
                 int fill="=".equals(k)?BLUE:((k.length()==1&&"0123456789.".contains(k))||"00".equals(k)||"±".equals(k)?DIGIT:FUNCTION);
                 b.setGravity(Gravity.CENTER);b.setClickable(true);b.setFocusable(true);b.setBackground(ripple(fill,dp(5)));
                 b.setOnClickListener(v->{
@@ -244,7 +250,7 @@ public final class MainActivity extends Activity {
             .setNeutralButton("MC",(d,w)->{engine.press("MC");afterKey();})
             .setNegativeButton("ปิด",null).show();}
     private void showModeDialog(){new AlertDialog.Builder(this).setTitle("เลือกรูปแบบ")
-        .setItems(MODES,(d,i)->selectMode(i))
+        .setItems(java.util.Arrays.stream(NAV).mapToObj(i->MODES[i]).toArray(String[]::new),(d,i)->selectMode(NAV[i]))
         .setNeutralButton("ล้างประวัติและ Memory",(d,i)->new AlertDialog.Builder(this)
             .setTitle("ล้างข้อมูลทั้งหมด?").setNegativeButton("ยกเลิก",null)
             .setPositiveButton("ล้าง",(dd,j)->{engine.clearSavedData();afterKey();}).show()).show();}
@@ -252,10 +258,10 @@ public final class MainActivity extends Activity {
     private void buildUnits(){
         ScrollView scroll=new ScrollView(this);page.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
         LinearLayout container=vertical();container.setPadding(dp(18),dp(14),dp(18),dp(20));scroll.addView(container);
-        container.addView(sectionTitle("แปลงหน่วย"));
+        container.addView(sectionTitle("Converter"));
         container.addView(description("คำนวณออฟไลน์ • เลือกหมวดหมู่และหน่วยที่ต้องการ"));
         container.addView(fieldLabel("หมวดหมู่"));
-        unitCategory=spinner(UnitConverter.categories());container.addView(unitCategory,new LinearLayout.LayoutParams(-1,dp(52)));
+        unitCategory=spinner(java.util.Arrays.stream(UnitConverter.categories()).filter(c->!c.equals("ภาษี")).toArray(String[]::new));container.addView(unitCategory,new LinearLayout.LayoutParams(-1,dp(52)));
         container.addView(fieldLabel("จำนวน / ราคา"));
         unitInput=numberBox("1");unitInput.setText("1");container.addView(unitInput,new LinearLayout.LayoutParams(-1,dp(58)));
         unitFromLabel=fieldLabel("จาก");container.addView(unitFromLabel);
@@ -318,44 +324,48 @@ public final class MainActivity extends Activity {
         int code=0;try{code=getPackageManager().getPackageInfo(getPackageName(),0).versionCode;}catch(Exception ignored){}
         new AlertDialog.Builder(this).setTitle("Calculator · Sirawit Labs")
         .setIcon(R.drawable.ic_calculator_foreground)
-        .setMessage("Smart Tools for Everyday Life\n\nDeveloper: Sirawit Dh.\nBrand: Sirawit Labs\nVersion: "+versionName()+"\nVersion code: "+code+"\nAndroid · Multi-Market\n© 2026 Sirawit Labs")
+        .setMessage("Smart Tools for Everyday Life\n\nDeveloper: Sirawit Dh.\nBrand: Sirawit Labs\nVersion: "+versionName()+"\nVersion code: "+code+"\nAndroid · Unified Calculator & Live Markets\n© 2026 Sirawit Labs")
         .setNeutralButton("GitHub",(d,w)->openUrl("https://github.com/vazabi11/BeatCalculator-Standard"))
         .setPositiveButton("ปิด",null).show();
     }
     private GradientDrawable bordered(int fill,int stroke,int radius){GradientDrawable d=new GradientDrawable();d.setColor(fill);d.setCornerRadius(dp(radius));d.setStroke(dp(1),stroke);return d;}
     private void space(LinearLayout parent,int height){parent.addView(new View(this),new LinearLayout.LayoutParams(-1,dp(height)));}
-    private void rule(LinearLayout parent){View separator=new View(this);separator.setBackgroundColor(0xff34404a);parent.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));}
+    private void rule(LinearLayout parent){View separator=new View(this);separator.setBackgroundColor(0xff30404d);parent.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));}
     private LinearLayout selector(LinearLayout holder,String title,Spinner sp){
         LinearLayout row=horizontal();row.setGravity(Gravity.CENTER_VERTICAL);TextView name=label(title,14,MUTED,true);
         row.addView(name,new LinearLayout.LayoutParams(dp(96),-2));
-        LinearLayout outline=horizontal();outline.setGravity(Gravity.CENTER_VERTICAL);outline.setBackground(bordered(0xff242c34,0xff4d5862,9));
+        LinearLayout outline=horizontal();outline.setGravity(Gravity.CENTER_VERTICAL);outline.setBackground(bordered(0xff142735,0xff304c5c,9));
         sp.setBackgroundTintList(ColorStateList.valueOf(WHITE));outline.addView(sp,new LinearLayout.LayoutParams(-1,dp(46)));
         row.addView(outline,new LinearLayout.LayoutParams(0,-2,1));holder.addView(row,new LinearLayout.LayoutParams(-1,-2));space(holder,8);return row;
     }
     private void buildPrice(boolean fuel){
         ScrollView sc=new ScrollView(this);sc.setFillViewport(true);page.addView(sc,new LinearLayout.LayoutParams(-1,-1));
         LinearLayout holder=vertical();holder.setPadding(dp(12),dp(8),dp(12),dp(22));sc.addView(holder);
-        TextView title=label(fuel?"ราคาน้ำมันหลายแบรนด์":"ราคาทองไทยและโลหะ",23,WHITE,true);holder.addView(title);space(holder,14);
+        TextView title=label(fuel?"Fuel Prices":"Markets",23,WHITE,true);holder.addView(title);space(holder,14);
         if(fuel){
-            fuelBrand=spinner(FUEL_BRANDS);selector(holder,"แบรนด์",fuelBrand);
-            fuelFilter=spinner(FUEL_TYPES);selector(holder,"ชนิดน้ำมัน",fuelFilter);
+            provincePicker=spinner(PROVINCES);selector(holder,"Province",provincePicker);
+            districtPicker=spinner(new String[]{"ระดับจังหวัด / ไม่ระบุอำเภอ","ระบุอำเภอเอง (ยังไม่มี feed)"});selector(holder,"District scope",districtPicker);districtName=new EditText(this);districtName.setSingleLine(true);districtName.setTextColor(WHITE);districtName.setHintTextColor(MUTED);districtName.setHint("ชื่ออำเภอ (กรอกเอง)");districtName.setText(getSharedPreferences("fuel53",0).getString("district",""));districtName.setVisibility(View.GONE);holder.addView(districtName,new LinearLayout.LayoutParams(-1,dp(48)));districtName.addTextChangedListener(watch(()->{getSharedPreferences("fuel53",0).edit().putString("district",districtName.getText().toString()).apply();}));
+            int saved=getSharedPreferences("fuel53",0).getInt("province",0);provincePicker.setSelection(Math.max(0,Math.min(saved,PROVINCES.length-1)));
+            fuelBrand=spinner(FUEL_BRANDS);selector(holder,"Brand",fuelBrand);
+            fuelFilter=spinner(FUEL_TYPES);selector(holder,"Fuel Type",fuelFilter);
             fuelBrand.setSelection(1);fuelFilter.setSelection(0);
         }else{
-            goldMarket=spinner(new String[]{"ทองคำไทย 96.5%","โลหะตลาดโลก (Spot)"});selector(holder,"ตลาดราคา",goldMarket);
+            goldMarket=spinner(new String[]{"Thai Gold","Metals","Crypto","Forex"});selector(holder,"Market",goldMarket);
+            metalMode=spinner(new String[]{"Live Streaming (key required)","Reference / latest available"});LinearLayout metalModeRow=selector(holder,"Feed",metalMode);metalModeRow.setVisibility(View.GONE);
             metalPicker=spinner(METALS);LinearLayout metalRow=selector(holder,"โลหะ",metalPicker);metalRow.setVisibility(View.GONE);
-            goldMarket.setOnItemSelectedListener(selected(()->{metalRow.setVisibility(goldMarket.getSelectedItemPosition()==0?View.GONE:View.VISIBLE);loadMetal();}));
-            metalPicker.setOnItemSelectedListener(selected(()->{int i=metalPicker.getSelectedItemPosition();if(i>=0&&i<SYMBOLS.length)selectedMetal=SYMBOLS[i];if(goldMarket.getSelectedItemPosition()==1)loadMetal();}));
+            Runnable changeMarket=()->{if(currentMode!=6)return;boolean metal=goldMarket.getSelectedItemPosition()==1;metalModeRow.setVisibility(metal?View.VISIBLE:View.GONE);metalRow.setVisibility(metal&&metalMode.getSelectedItemPosition()==1?View.VISIBLE:View.GONE);startPolling();};goldMarket.setOnItemSelectedListener(selected(changeMarket));metalMode.setOnItemSelectedListener(selected(()->{if(goldMarket.getSelectedItemPosition()==1)changeMarket.run();}));
+            metalPicker.setOnItemSelectedListener(selected(()->{int i=metalPicker.getSelectedItemPosition();if(i>=0&&i<SYMBOLS.length)selectedMetal=SYMBOLS[i];if(marketIndex()==1)loadMetal();}));
         }
         liveResults=vertical();holder.addView(liveResults,new LinearLayout.LayoutParams(-1,-2));space(holder,10);
         TextView refresh=button("⟳  ตรวจสอบราคาใหม่",BLUE,Color.BLACK);holder.addView(refresh,new LinearLayout.LayoutParams(-1,dp(48)));
         refresh.setOnClickListener(v->{if(fuel)loadFuel();else loadMetal();});
         liveStatus=label("กำลังตรวจสอบราคา",12,MUTED,false);liveStatus.setPadding(0,dp(8),0,dp(8));holder.addView(liveStatus);
-        TextView note=label("ⓘ  ออฟไลน์: ใช้ราคาล่าสุดที่บันทึกไว้",12,0xffb7d9eb,false);note.setPadding(dp(12),dp(12),dp(12),dp(12));note.setBackground(bordered(0xff152c3a,0xff349dcd,10));holder.addView(note);
+        TextView note=label("ⓘ  ออฟไลน์: ใช้ราคาล่าสุดที่บันทึกไว้",12,0xffb7d9eb,false);note.setPadding(dp(12),dp(12),dp(12),dp(12));note.setBackground(bordered(0xff102531,0xff304c5c,10));holder.addView(note);
         TextView links=label("แหล่งข้อมูลและรายละเอียด  ↗",12,MUTED,false);links.setPadding(0,dp(14),0,dp(10));holder.addView(links);
         links.setOnClickListener(v->{String[] titles=fuel?new String[]{"PTT OR","บางจาก","EPPO","รายละเอียดการเชื่อมต่อ"}:new String[]{"Rakhagold — เครดิตข้อมูล","ThaiGoldToday","สมาคมค้าทองคำ","Gold API"};
             String[] urls=fuel?new String[]{"https://www.pttor.com/news/oil-price","https://www.bangchak.co.th/th/OilPrice/","https://www.eppo.go.th/"}:new String[]{"https://rakhagold.com/","https://www.thaigoldtoday.com/","https://www.goldtraders.or.th/","https://gold-api.com/"};
             new AlertDialog.Builder(this).setTitle("แหล่งข้อมูลอ้างอิง").setItems(titles,(d,i)->{if(i<urls.length)openUrl(urls[i]);else showFuelDetails();}).setPositiveButton("ปิด",null).show();});
-        if(fuel){fuelBrand.setOnItemSelectedListener(selected(this::loadFuel));fuelFilter.setOnItemSelectedListener(selected(this::renderFuel));}
+        if(fuel){fuelBrand.setOnItemSelectedListener(selected(this::loadFuel));fuelFilter.setOnItemSelectedListener(selected(this::renderFuel));provincePicker.setOnItemSelectedListener(selected(()->{getSharedPreferences("fuel53",0).edit().putInt("province",provincePicker.getSelectedItemPosition()).apply();loadFuel();}));districtPicker.setOnItemSelectedListener(selected(()->{districtName.setVisibility(districtPicker.getSelectedItemPosition()==1?View.VISIBLE:View.GONE);loadFuel();}));}
     }
     private void showFuelDetails(){new AlertDialog.Builder(this).setTitle("วินิจฉัยราคาน้ำมัน").setMessage((pttProblem==null?"":"PTT OR: "+pttProblem+"\n")+(bangchakProblem==null?"":"บางจาก: "+bangchakProblem)).setPositiveButton("ปิด",null).show();}
     private LinearLayout marketCard(String name,String status,int color,String unit){
@@ -374,13 +384,15 @@ public final class MainActivity extends Activity {
     private void emptyCard(String name,boolean checking){LinearLayout c=marketCard(name,checking?"กำลังตรวจสอบ":"ไม่มีข้อมูล",checking?MUTED:WARNING,"");TextView empty=label(checking?"กำลังดึงราคาใหม่":"ยังไม่มีราคาที่ตรวจสอบได้",15,WHITE,true);empty.setPadding(0,dp(10),0,dp(8));c.addView(empty);attachCard(c,checking?"":"ยังไม่มีราคาสำรองสำหรับรายการนี้");}
     private void startPolling(){
         handler.removeCallbacks(periodic);
+        if(paused)return;
         if(currentMode==5){loadFuel();handler.postDelayed(periodic,15*60*1000L);}
-        else if(currentMode==6){loadMetal();handler.postDelayed(periodic,5*60*1000L);}
+        else if(currentMode==6){loadMetal();if(marketIndex()<2)handler.postDelayed(periodic,marketIndex()==0?60*1000L:5*60*1000L);}
     }
     private int currentFuelBrand(){return fuelBrand==null?0:Math.max(0,fuelBrand.getSelectedItemPosition());}
     private void loadFuel(){
-        if(currentMode!=5||liveResults==null)return;
+        if(currentMode!=5||liveResults==null||liveStatus==null||paused)return;
         int token=++fetchToken;
+        if(!referenceArea()){renderRegionalUnavailable();return;}
         latestFuel=null;latestPtt=null;pttProblem=null;bangchakProblem=null;
         pttFinished=false;bangchakFinished=false;
         pttCached=false;bangchakCached=false;pttCachedAt=0;bangchakCachedAt=0;
@@ -434,6 +446,7 @@ public final class MainActivity extends Activity {
     }
     private void renderFuel(){
         if(currentMode!=5||liveResults==null||fuelFilter==null)return;
+        if(!referenceArea()){renderRegionalUnavailable();return;}
         liveResults.removeAllViews();int brand=currentFuelBrand();String selected=String.valueOf(fuelFilter.getSelectedItem());long now=System.currentTimeMillis();
         if(brand==0||brand==1){
             if(latestPtt==null)emptyCard("PTT OR",!pttFinished);
@@ -441,7 +454,7 @@ public final class MainActivity extends Activity {
                 boolean recent=true;long stamp=0;String rawTime="";int count=0;
                 for(OilPriceParser.Item e:latestPtt.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.product))){recent&=e.isRecent(now);if(e.publishedMillis>=stamp){stamp=e.publishedMillis;rawTime=e.publishedAt;}}
                 String state=pttCached?"ราคาที่บันทึกไว้":recent?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง";
-                LinearLayout c=marketCard("PTT OR",state,pttCached||!recent?WARNING:0xff95dfbf,"ราคาขายปลีก · บาท/ลิตร");
+                LinearLayout c=marketCard("PTT OR",state,pttCached||!recent?WARNING:0xff95dfbf,"Bangkok reference · บาท/ลิตร");
                 for(OilPriceParser.Item e:latestPtt.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.product))){addFuelRow(c,e.product,e.price);count++;}
                 if(count==0)c.addView(label("ไม่มีราคาสำหรับชนิดที่เลือก",14,MUTED,false));
                 attachCard(c,"ประกาศ: "+(stamp>0?formatSavedAt(stamp):rawTime.isEmpty()?"ไม่ระบุ":rawTime)+"\nแหล่งข้อมูล: PTT OR"+(pttCached?" · แคช "+formatSavedAt(pttCachedAt):""));
@@ -449,15 +462,20 @@ public final class MainActivity extends Activity {
         }
         if(brand==0||brand==2){
             if(latestFuel==null)emptyCard("บางจาก",!bangchakFinished);
-            else{LinearLayout c=marketCard("บางจาก",bangchakCached?"ราคาที่บันทึกไว้":latestFuel.fresh?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง",bangchakCached||!latestFuel.fresh?WARNING:0xff95dfbf,"ราคาขายปลีก · บาท/ลิตร");int count=0;
+            else{LinearLayout c=marketCard("บางจาก",bangchakCached?"ราคาที่บันทึกไว้":latestFuel.fresh?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง",bangchakCached||!latestFuel.fresh?WARNING:0xff95dfbf,"Bangkok reference · บาท/ลิตร");int count=0;
                 for(PriceService.FuelItem e:latestFuel.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.name))){addFuelRow(c,e.name,e.price);count++;}if(count==0)c.addView(label("ไม่มีราคาสำหรับชนิดที่เลือก",14,MUTED,false));
                 attachCard(c,"ประกาศ: "+latestFuel.updateString+"\nแหล่งข้อมูล: บางจาก"+(bangchakCached?" · แคช "+formatSavedAt(bangchakCachedAt):""));}
         }
         boolean failed=pttProblem!=null||bangchakProblem!=null;
         liveStatus.setText(failed?"อัปเดตไม่สำเร็จ · แตะดูรายละเอียด":"");liveStatus.setVisibility(failed?View.VISIBLE:View.GONE);liveStatus.setTextColor(WARNING);liveStatus.setOnClickListener(failed?v->showFuelDetails():null);
     }
+    private int marketIndex(){int i=goldMarket==null?0:goldMarket.getSelectedItemPosition();return i==1&&metalMode!=null&&metalMode.getSelectedItemPosition()==0?4:Math.max(0,i);}
+    private boolean referenceArea(){return provincePicker==null||(provincePicker.getSelectedItemPosition()==0&&(districtPicker==null||districtPicker.getSelectedItemPosition()==0));}
+    private void renderRegionalUnavailable(){liveResults.removeAllViews();liveStatus.setVisibility(View.VISIBLE);liveStatus.setText("Regional data unavailable · "+provincePicker.getSelectedItem());liveStatus.setTextColor(WARNING);liveStatus.setOnClickListener(null);liveResults.addView(description("ยังไม่มี API รายจังหวัด/อำเภอที่ตรวจสอบได้สำหรับแบรนด์นี้ — ไม่ใช้ราคากรุงเทพฯ แทน"));TextView official=button("Open OR regional price information ↗",FUNCTION,WHITE);liveResults.addView(official,new LinearLayout.LayoutParams(-1,dp(48)));official.setOnClickListener(v->openUrl("https://www.pttor.com/news/oil-price"));}
     private void loadMetal(){
-        if(currentMode!=6||liveResults==null)return;
+        if(currentMode!=6||liveResults==null||liveStatus==null||paused)return;
+        if(marketIndex()>=2){fetchToken++;liveResults.removeAllViews();liveStatus.setVisibility(View.VISIBLE);liveStatus.setTextColor(MUTED);liveStatus.setOnClickListener(null);if(stream==null)stream=new MarketStream(this);stream.attach(liveResults,marketIndex()==2?"Crypto":marketIndex()==3?"Forex":"Metals",liveStatus);return;}
+        if(stream!=null)stream.stop();
         int token=++fetchToken;
         boolean thai=goldMarket==null||goldMarket.getSelectedItemPosition()==0;
         if(thai){
@@ -550,7 +568,7 @@ public final class MainActivity extends Activity {
     private void persist(){JSONArray a=new JSONArray();for(String h:engine.getHistory())a.put(h);
         getSharedPreferences("calculator_standard_v2",MODE_PRIVATE).edit().putString("memory",engine.getMemory())
                 .putString("history",a.toString()).apply();}
-    @Override public boolean onKeyDown(int code,KeyEvent e){if(currentMode>3)return super.onKeyDown(code,e);
+    @Override public boolean onKeyDown(int code,KeyEvent e){if(currentMode>=3)return super.onKeyDown(code,e);
         String key=null;
         if(code>=KeyEvent.KEYCODE_0&&code<=KeyEvent.KEYCODE_9)key=""+(code-KeyEvent.KEYCODE_0);
         else if(code>=KeyEvent.KEYCODE_NUMPAD_0&&code<=KeyEvent.KEYCODE_NUMPAD_9)key=""+(code-KeyEvent.KEYCODE_NUMPAD_0);
@@ -564,14 +582,14 @@ public final class MainActivity extends Activity {
         Spinner sp=new Spinner(this);sp.setAdapter(spinnerAdapter(values));return sp;
     }
     private ArrayAdapter<String> spinnerAdapter(String[] values){
-        return new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values){
+        ArrayAdapter<String> adapter=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values){
             @Override public View getView(int position,View convertView,ViewGroup parent){
                 TextView t=(TextView)super.getView(position,convertView,parent);t.setTextColor(WHITE);t.setTextSize(16);t.setPadding(dp(8),0,dp(8),0);return t;
             }
             @Override public View getDropDownView(int position,View convertView,ViewGroup parent){
                 TextView t=(TextView)super.getDropDownView(position,convertView,parent);t.setTextColor(Color.BLACK);return t;
             }
-        };
+        };adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);return adapter;
     }
     private AdapterView.OnItemSelectedListener selected(Runnable onPick){
         return new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int position,long id){onPick.run();}

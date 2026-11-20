@@ -41,7 +41,7 @@ public final class PriceService {
         HttpURLConnection con=(HttpURLConnection)new URL(endpoint).openConnection();
         con.setConnectTimeout(10000); con.setReadTimeout(10000);
         con.setRequestProperty("Accept","application/json");
-        con.setRequestProperty("User-Agent","SirawitLabs-Calculator/5.1 (Android)");
+        con.setRequestProperty("User-Agent","SirawitLabs-Calculator/5.3 (Android)");
         try {
             int code=con.getResponseCode();
             if(code!=200) throw new Exception("HTTP "+code);
@@ -61,6 +61,10 @@ public final class PriceService {
         if(now-goldAttempt<60_000L){if(goldBody!=null)return goldBody;throw new Exception(goldError==null?"รอรอบอัปเดต":goldError);}
         goldAttempt=now;goldBody=null;goldError=null;
         try{return goldBody=read(THAI_GOLD_BACKUP_SOURCE);}catch(Exception ex){goldError=ex.getMessage();throw ex;}
+    }
+    public static void reference(String from,String to,Callback<JSONObject> cb){
+        if(!from.matches("[A-Z]{3}")||!to.matches("[A-Z]{3}")){cb.done(null,"Invalid currency");return;}
+        async(()->new JSONObject(read("https://api.frankfurter.dev/v2/rate/"+from+"/"+to)),cb);
     }
     public static void ptt(Callback<OilPriceParser.Feed> cb) {
         async(() -> PttOilService.fetchFeed(),cb);
