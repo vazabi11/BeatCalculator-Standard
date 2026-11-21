@@ -2,12 +2,23 @@ name: Build Calculator APK
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_prerelease:
+        description: Publish a public testing pre-release (debug APK)
+        type: boolean
+        default: false
   push:
     branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
+      apk_sha256: ${{ steps.package.outputs.apk_sha256 }}
 
     steps:
       - name: Checkout source
@@ -98,6 +109,8 @@ jobs:
           expected_id = exactly_one(r"^\s*applicationId\s+['\"]([^'\"]+)['\"]\s*$", gradle, 'Gradle applicationId')
           apk = Path('app/build/outputs/apk/debug/app-debug.apk')
           aapt = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/aapt'
+          apksigner = aapt.parent / "apksigner"
+          subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], check=True)
           badging = subprocess.check_output([str(aapt), 'dump', 'badging', str(apk)], text=True)
           package = exactly_one(r'^package: (.+)$', badging, 'APK package metadata')
           def apk_field(name):
@@ -116,7 +129,7 @@ jobs:
           shutil.copyfile(apk, dest)
           checksum = hashlib.sha256(dest.read_bytes()).hexdigest()
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
-              out.write(f'artifact_name={name}\napk_path={dest.as_posix()}\n')
+              out.write(f'artifact_name={name}\napk_path={dest.as_posix()}\napk_sha256={checksum}\n')
           summary = (
               '## Calculator APK — verified metadata\n'
               f'- File: `{dest.name}`\n'
@@ -137,3 +150,42 @@ jobs:
           name: ${{ steps.package.outputs.artifact_name }}
           path: ${{ steps.package.outputs.apk_path }}
           if-no-files-found: error
+
+  publish:
+    name: Publish testing pre-release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_prerelease && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: calculator-publish-${{ needs.build.outputs.artifact_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Download verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: dist
+
+      - name: Publish pre-release without replacing existing versions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ needs.build.outputs.artifact_name }}
+          EXPECTED_SHA: ${{ needs.build.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_NAME" =~ ^Calculator-v[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9._-]+)?$ ]]
+          APK="dist/${ARTIFACT_NAME}.apk"
+          TAG="v${ARTIFACT_NAME#Calculator-v}"
+          printf '%s  %s\n' "$EXPECTED_SHA" "$APK" | sha256sum --check
+          # Do not retag or overwrite an already published version.
+          if gh api "repos/${GH_REPO}/git/ref/tags/${TAG}" --silent; then
+            echo "::error::Tag already exists; increment versionName and versionCode before publishing."
+            exit 1
+          fi
+          gh release create "$TAG" "$APK" --repo "$GH_REPO" \
+            --target "$GITHUB_SHA" --title "$ARTIFACT_NAME" --prerelease \
+            --notes "Debug APK for testing only. Build and unit tests passed; live APIs and device acceptance are not certified. Commit: $GITHUB_SHA. SHA-256: $EXPECTED_SHA"
