@@ -56,7 +56,10 @@ jobs:
             app/src/main/java/com/beatoflove/standardcalculator/FormulaStats.java \
             tests/FormulaProTest.java \
             app/src/main/java/com/beatoflove/standardcalculator/FinancialMath.java \
-            tests/FinancialMathTest.java
+            tests/FinancialMathTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/PttOilService.java \
+            app/src/main/java/com/beatoflove/standardcalculator/ProvinceNames.java \
+            tests/RegionalFuelTest.java
           java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
           java -cp tests/out com.beatoflove.standardcalculator.AdvancedFeaturesTest
           java -cp tests/out com.beatoflove.standardcalculator.MarketFeedsTest
@@ -65,13 +68,72 @@ jobs:
           java -cp tests/out com.beatoflove.standardcalculator.MarketTimeTest
           java -cp tests/out com.beatoflove.standardcalculator.FormulaProTest
           java -cp tests/out com.beatoflove.standardcalculator.FinancialMathTest
+          java -cp tests/out com.beatoflove.standardcalculator.RegionalFuelTest
 
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Verify APK version and prepare named artifact
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          import hashlib
+          import os
+          import re
+          import shutil
+          import subprocess
+          from pathlib import Path
+
+          gradle = Path('app/build.gradle').read_text(encoding='utf-8')
+          def exactly_one(pattern, text, label):
+              matches = re.findall(pattern, text, re.MULTILINE)
+              if len(matches) != 1:
+                  raise SystemExit(f'Cannot verify {label}: expected one value, got {len(matches)}')
+              return matches[0]
+
+          expected_version = exactly_one(r"^\s*versionName\s+['\"]([^'\"]+)['\"]\s*$", gradle, 'Gradle versionName')
+          expected_code = exactly_one(r"^\s*versionCode\s+(\d+)\s*$", gradle, 'Gradle versionCode')
+          expected_id = exactly_one(r"^\s*applicationId\s+['\"]([^'\"]+)['\"]\s*$", gradle, 'Gradle applicationId')
+          apk = Path('app/build/outputs/apk/debug/app-debug.apk')
+          aapt = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/aapt'
+          badging = subprocess.check_output([str(aapt), 'dump', 'badging', str(apk)], text=True)
+          package = exactly_one(r'^package: (.+)$', badging, 'APK package metadata')
+          def apk_field(name):
+              return exactly_one(r"(?:^|\s)" + name + r"='([^']+)'", package, 'APK ' + name)
+          version, code, app_id = apk_field('versionName'), apk_field('versionCode'), apk_field('name')
+          if (version, code, app_id) != (expected_version, expected_code, expected_id):
+              raise SystemExit(f'APK metadata mismatch: actual {(version, code, app_id)}; expected {(expected_version, expected_code, expected_id)}')
+          if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){2}(?:[-+][A-Za-z0-9._-]+)?', version):
+              raise SystemExit('Unsupported versionName for a safe artifact name: ' + version)
+          if not re.search(r'^application-debuggable\s*$', badging, re.MULTILINE):
+              raise SystemExit('Expected a debuggable APK from assembleDebug')
+
+          name = 'Calculator-v' + version
+          dest = Path('dist') / (name + '.apk')
+          dest.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copyfile(apk, dest)
+          checksum = hashlib.sha256(dest.read_bytes()).hexdigest()
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'artifact_name={name}\napk_path={dest.as_posix()}\n')
+          summary = (
+              '## Calculator APK — verified metadata\n'
+              f'- File: `{dest.name}`\n'
+              f'- Version: `{version}` (code `{code}`)\n'
+              f'- Application ID: `{app_id}`\n'
+              '- Build type: **Debug / testing only**\n'
+              f'- Commit: `{os.environ.get("GITHUB_SHA", "unknown")}`\n'
+              f'- SHA-256: `{checksum}`\n'
+          )
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write(summary)
+          print(summary)
+          PYCODE
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SirawitLabs-Calculator-v5.3.0-debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.apk_path }}
           if-no-files-found: error

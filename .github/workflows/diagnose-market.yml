@@ -4,14 +4,40 @@ on:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Validate real provincial responses, bank boards and market snapshot endpoints
+        env:
+          LIVE_MARKET_TESTS: '1'
+        run: gradle :app:testDebugUnitTest --tests '*LiveConnectivityTest' --no-daemon --rerun-tasks --info
+      - name: Upload detailed integration report even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v5.3.1-live-integration-report
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
       - uses: actions/setup-python@v5
+        if: always()
         with:
           python-version: '3.12'
-      - name: Inspect public endpoint statuses and field names
-        run: python tests/live_market_probe.py
-      - name: Install public stream diagnostic dependency
-        run: python -m pip install websocket-client==1.8.0
-      - name: Verify reference and public crypto stream
-        run: python tests/live_market_v53.py
+      - name: Check Frankfurter and Binance separately
+        if: always()
+        run: |
+          python -m pip install websocket-client==1.8.0
+          python tests/live_market_v53.py
