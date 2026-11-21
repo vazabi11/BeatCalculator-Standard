@@ -19,7 +19,7 @@ jobs:
         run: |
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-35" "build-tools;35.0.0"
-      - name: Validate real provincial responses, bank boards and market snapshot endpoints
+      - name: Validate real provincial responses, reference exchange board and market snapshot endpoints
         env:
           LIVE_MARKET_TESTS: '1'
         run: gradle :app:testDebugUnitTest --tests '*LiveConnectivityTest' --no-daemon --rerun-tasks --info
@@ -27,7 +27,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v5.3.1-live-integration-report
+          name: live-integration-report
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/

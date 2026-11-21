@@ -70,7 +70,11 @@ jobs:
             tests/FinancialMathTest.java \
             app/src/main/java/com/beatoflove/standardcalculator/PttOilService.java \
             app/src/main/java/com/beatoflove/standardcalculator/ProvinceNames.java \
-            tests/RegionalFuelTest.java
+            tests/RegionalFuelTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/UiPolicy.java \
+            tests/UiPolicyTest.java \
+            app/src/main/java/com/beatoflove/standardcalculator/ReferenceRate.java \
+            tests/ReferenceRateTest.java
           java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
           java -cp tests/out com.beatoflove.standardcalculator.AdvancedFeaturesTest
           java -cp tests/out com.beatoflove.standardcalculator.MarketFeedsTest
@@ -80,6 +84,8 @@ jobs:
           java -cp tests/out com.beatoflove.standardcalculator.FormulaProTest
           java -cp tests/out com.beatoflove.standardcalculator.FinancialMathTest
           java -cp tests/out com.beatoflove.standardcalculator.RegionalFuelTest
+          java -cp tests/out com.beatoflove.standardcalculator.UiPolicyTest
+          java -cp tests/out com.beatoflove.standardcalculator.ReferenceRateTest
 
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
