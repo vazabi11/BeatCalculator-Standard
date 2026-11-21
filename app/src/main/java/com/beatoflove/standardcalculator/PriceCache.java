@@ -74,7 +74,8 @@ public final class PriceCache {
         }
     }
 
-    public static boolean putPtt(Context c, OilPriceParser.Feed feed) {
+    public static boolean putPtt(Context c, OilPriceParser.Feed feed) {return putPtt(c,"",feed);}
+    public static boolean putPtt(Context c,String province,OilPriceParser.Feed feed) {
         if(feed == null || feed.items.isEmpty()) return false;
         try {
             JSONArray array = new JSONArray();long published = 0;
@@ -83,25 +84,27 @@ public final class PriceCache {
                         !Double.isFinite(item.price) || item.price<=0 || item.price>=200) return false;
                 JSONObject obj = new JSONObject();
                 obj.put("name", item.product);obj.put("price",item.price);
-                obj.put("published",item.publishedAt);obj.put("millis",item.publishedMillis);
+                obj.put("location",item.location);obj.put("published",item.publishedAt);obj.put("millis",item.publishedMillis);
                 array.put(obj);
                 published = Math.max(published, item.publishedMillis);
             }
-            return write(c,PTT,new JSONObject().put("items",array),published);
+            return write(c,pttKey(province),new JSONObject().put("items",array),published);
         } catch(Exception ex){return false;}
     }
-    public static Snapshot<OilPriceParser.Feed> getPtt(Context c) {
-        Snapshot<JSONObject> cached = read(c,PTT);
+    private static String pttKey(String province){return province.isEmpty()?PTT:PTT+":province:"+province;}
+    public static Snapshot<OilPriceParser.Feed> getPtt(Context c){return getPtt(c,"");}
+    public static Snapshot<OilPriceParser.Feed> getPtt(Context c,String province) {
+        Snapshot<JSONObject> cached = read(c,pttKey(province));
         if(cached == null)return null;
         try {
             JSONArray rows=cached.data.getJSONArray("items");
-            if(rows.length()==0 || rows.length()>100)return null;
+            if(rows.length()==0 || rows.length()>500)return null;
             ArrayList<OilPriceParser.Item> items=new ArrayList<>();
             for(int i=0;i<rows.length();i++){
                 JSONObject r=rows.getJSONObject(i);
                 String name=r.getString("name");double price=r.getDouble("price");
                 if(name.isEmpty()||name.length()>150||!Double.isFinite(price)||price<=0||price>=200)return null;
-                items.add(new OilPriceParser.Item(name,price,r.optString("published",""),r.optLong("millis",0)));
+                items.add(new OilPriceParser.Item(name,price,r.optString("published",""),r.optLong("millis",0),r.optString("location","")));
             }
             return new Snapshot<>(new OilPriceParser.Feed(items),cached.savedAtMillis,cached.publisherMillis);
         } catch(Exception ex){return null;}

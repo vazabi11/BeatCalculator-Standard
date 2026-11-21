@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
     private static final String[] MODES={"","Standard","Scientific","Formula Pro","Converter","Fuel","Markets","Financial","Currency"};
     private static final int[] NAV={1,2,3,7,8,5,6,4};
     private FinancialPanel financialPanel; private CurrencyPanel currencyPanel; private MarketStream stream;
-    private Spinner provincePicker,districtPicker; private EditText districtName; private boolean paused=false;
+    private Spinner provincePicker; private boolean paused=false;
     private static final String[] PROVINCES=("Bangkok reference|กรุงเทพมหานคร|กระบี่|กาญจนบุรี|กาฬสินธุ์|กำแพงเพชร|ขอนแก่น|จันทบุรี|ฉะเชิงเทรา|ชลบุรี|ชัยนาท|ชัยภูมิ|ชุมพร|เชียงราย|เชียงใหม่|ตรัง|ตราด|ตาก|นครนายก|นครปฐม|นครพนม|นครราชสีมา|นครศรีธรรมราช|นครสวรรค์|นนทบุรี|นราธิวาส|น่าน|บึงกาฬ|บุรีรัมย์|ปทุมธานี|ประจวบคีรีขันธ์|ปราจีนบุรี|ปัตตานี|พระนครศรีอยุธยา|พะเยา|พังงา|พัทลุง|พิจิตร|พิษณุโลก|เพชรบุรี|เพชรบูรณ์|แพร่|ภูเก็ต|มหาสารคาม|มุกดาหาร|แม่ฮ่องสอน|ยโสธร|ยะลา|ร้อยเอ็ด|ระนอง|ระยอง|ราชบุรี|ลพบุรี|ลำปาง|ลำพูน|เลย|ศรีสะเกษ|สกลนคร|สงขลา|สตูล|สมุทรปราการ|สมุทรสงคราม|สมุทรสาคร|สระแก้ว|สระบุรี|สิงห์บุรี|สุโขทัย|สุพรรณบุรี|สุราษฎร์ธานี|สุรินทร์|หนองคาย|หนองบัวลำภู|อ่างทอง|อำนาจเจริญ|อุดรธานี|อุตรดิตถ์|อุทัยธานี|อุบลราชธานี").split("\\|");
     private static final String[] METALS={"ทองคำ (Gold / XAU)","เงิน (Silver / XAG)","แพลทินัม (Platinum / XPT)","พัลลาเดียม (Palladium / XPD)"};
     private static final String[] SYMBOLS={"XAU","XAG","XPT","XPD"};
@@ -344,20 +344,19 @@ public final class MainActivity extends Activity {
         TextView title=label(fuel?"Fuel Prices":"Markets",23,WHITE,true);holder.addView(title);space(holder,14);
         if(fuel){
             provincePicker=spinner(PROVINCES);selector(holder,"Province",provincePicker);
-            districtPicker=spinner(new String[]{"ระดับจังหวัด / ไม่ระบุอำเภอ","ระบุอำเภอเอง (ยังไม่มี feed)"});selector(holder,"District scope",districtPicker);districtName=new EditText(this);districtName.setSingleLine(true);districtName.setTextColor(WHITE);districtName.setHintTextColor(MUTED);districtName.setHint("ชื่ออำเภอ (กรอกเอง)");districtName.setText(getSharedPreferences("fuel53",0).getString("district",""));districtName.setVisibility(View.GONE);holder.addView(districtName,new LinearLayout.LayoutParams(-1,dp(48)));districtName.addTextChangedListener(watch(()->{getSharedPreferences("fuel53",0).edit().putString("district",districtName.getText().toString()).apply();}));
             int saved=getSharedPreferences("fuel53",0).getInt("province",0);provincePicker.setSelection(Math.max(0,Math.min(saved,PROVINCES.length-1)));
             fuelBrand=spinner(FUEL_BRANDS);selector(holder,"Brand",fuelBrand);
             fuelFilter=spinner(FUEL_TYPES);selector(holder,"Fuel Type",fuelFilter);
-            fuelBrand.setSelection(1);fuelFilter.setSelection(0);
+            fuelBrand.setSelection(Math.max(0,Math.min(FUEL_BRANDS.length-1,getSharedPreferences("fuel53",0).getInt("brand",1))));fuelFilter.setSelection(0);
         }else{
             goldMarket=spinner(new String[]{"Thai Gold","Metals","Crypto","Forex"});selector(holder,"Market",goldMarket);
-            metalMode=spinner(new String[]{"Live Streaming (key required)","Reference / latest available"});LinearLayout metalModeRow=selector(holder,"Feed",metalMode);metalModeRow.setVisibility(View.GONE);
+            metalMode=spinner(new String[]{"Market quotes (automatic)","Reference / latest available"});LinearLayout metalModeRow=selector(holder,"Feed",metalMode);metalModeRow.setVisibility(View.GONE);
             metalPicker=spinner(METALS);LinearLayout metalRow=selector(holder,"โลหะ",metalPicker);metalRow.setVisibility(View.GONE);
             Runnable changeMarket=()->{if(currentMode!=6)return;boolean metal=goldMarket.getSelectedItemPosition()==1;metalModeRow.setVisibility(metal?View.VISIBLE:View.GONE);metalRow.setVisibility(metal&&metalMode.getSelectedItemPosition()==1?View.VISIBLE:View.GONE);startPolling();};goldMarket.setOnItemSelectedListener(selected(changeMarket));metalMode.setOnItemSelectedListener(selected(()->{if(goldMarket.getSelectedItemPosition()==1)changeMarket.run();}));
             metalPicker.setOnItemSelectedListener(selected(()->{int i=metalPicker.getSelectedItemPosition();if(i>=0&&i<SYMBOLS.length)selectedMetal=SYMBOLS[i];if(marketIndex()==1)loadMetal();}));
         }
         liveResults=vertical();holder.addView(liveResults,new LinearLayout.LayoutParams(-1,-2));space(holder,10);
-        TextView refresh=button("⟳  ตรวจสอบราคาใหม่",BLUE,Color.BLACK);holder.addView(refresh,new LinearLayout.LayoutParams(-1,dp(48)));
+        TextView refresh=button("⟳  Refresh Prices",BLUE,Color.BLACK);holder.addView(refresh,new LinearLayout.LayoutParams(-1,dp(48)));
         refresh.setOnClickListener(v->{if(fuel)loadFuel();else loadMetal();});
         liveStatus=label("กำลังตรวจสอบราคา",12,MUTED,false);liveStatus.setPadding(0,dp(8),0,dp(8));holder.addView(liveStatus);
         TextView note=label("ⓘ  ออฟไลน์: ใช้ราคาล่าสุดที่บันทึกไว้",12,0xffb7d9eb,false);note.setPadding(dp(12),dp(12),dp(12),dp(12));note.setBackground(bordered(0xff102531,0xff304c5c,10));holder.addView(note);
@@ -365,7 +364,7 @@ public final class MainActivity extends Activity {
         links.setOnClickListener(v->{String[] titles=fuel?new String[]{"PTT OR","บางจาก","EPPO","รายละเอียดการเชื่อมต่อ"}:new String[]{"Rakhagold — เครดิตข้อมูล","ThaiGoldToday","สมาคมค้าทองคำ","Gold API"};
             String[] urls=fuel?new String[]{"https://www.pttor.com/news/oil-price","https://www.bangchak.co.th/th/OilPrice/","https://www.eppo.go.th/"}:new String[]{"https://rakhagold.com/","https://www.thaigoldtoday.com/","https://www.goldtraders.or.th/","https://gold-api.com/"};
             new AlertDialog.Builder(this).setTitle("แหล่งข้อมูลอ้างอิง").setItems(titles,(d,i)->{if(i<urls.length)openUrl(urls[i]);else showFuelDetails();}).setPositiveButton("ปิด",null).show();});
-        if(fuel){fuelBrand.setOnItemSelectedListener(selected(this::loadFuel));fuelFilter.setOnItemSelectedListener(selected(this::renderFuel));provincePicker.setOnItemSelectedListener(selected(()->{getSharedPreferences("fuel53",0).edit().putInt("province",provincePicker.getSelectedItemPosition()).apply();loadFuel();}));districtPicker.setOnItemSelectedListener(selected(()->{districtName.setVisibility(districtPicker.getSelectedItemPosition()==1?View.VISIBLE:View.GONE);loadFuel();}));}
+        if(fuel){fuelBrand.setOnItemSelectedListener(selected(()->{getSharedPreferences("fuel53",0).edit().putInt("brand",currentFuelBrand()).apply();loadFuel();}));fuelFilter.setOnItemSelectedListener(selected(this::renderFuel));provincePicker.setOnItemSelectedListener(selected(()->{getSharedPreferences("fuel53",0).edit().putInt("province",provincePicker.getSelectedItemPosition()).apply();loadFuel();}));}
     }
     private void showFuelDetails(){new AlertDialog.Builder(this).setTitle("วินิจฉัยราคาน้ำมัน").setMessage((pttProblem==null?"":"PTT OR: "+pttProblem+"\n")+(bangchakProblem==null?"":"บางจาก: "+bangchakProblem)).setPositiveButton("ปิด",null).show();}
     private LinearLayout marketCard(String name,String status,int color,String unit){
@@ -392,11 +391,12 @@ public final class MainActivity extends Activity {
     private void loadFuel(){
         if(currentMode!=5||liveResults==null||liveStatus==null||paused)return;
         int token=++fetchToken;
-        if(!referenceArea()){renderRegionalUnavailable();return;}
+        
         latestFuel=null;latestPtt=null;pttProblem=null;bangchakProblem=null;
         pttFinished=false;bangchakFinished=false;
         pttCached=false;bangchakCached=false;pttCachedAt=0;bangchakCachedAt=0;
         int brand=currentFuelBrand();
+        final String province=referenceArea()?"":String.valueOf(provincePicker.getSelectedItem());
         liveResults.removeAllViews();liveStatus.setTextColor(MUTED);
         if(brand==3){
             liveStatus.setText("Shell: ไม่มี API ที่ยืนยันสิทธิ์ใช้ในรุ่นนี้ จึงไม่มีราคาอัตโนมัติหรือแคช");
@@ -405,21 +405,21 @@ public final class MainActivity extends Activity {
         }
         // Read the last successfully validated quotes BEFORE starting network requests.
         if(brand==0||brand==1){
-            PriceCache.Snapshot<OilPriceParser.Feed> snapshot=PriceCache.getPtt(this);
+            PriceCache.Snapshot<OilPriceParser.Feed> snapshot=PriceCache.getPtt(this,province);
             if(snapshot!=null){latestPtt=snapshot.data;pttCached=true;pttCachedAt=snapshot.savedAtMillis;}
         }
-        if(brand==0||brand==2){
+        if((brand==0||brand==2)&&referenceArea()){
             PriceCache.Snapshot<PriceService.FuelData> snapshot=PriceCache.getBangchak(this);
             if(snapshot!=null){latestFuel=snapshot.data;bangchakCached=true;bangchakCachedAt=snapshot.savedAtMillis;}
         }
         renderFuel();
         if(brand==0||brand==1){
-            PriceService.ptt((data,error)->{
+            PriceService.ptt(province,(data,error)->{
                 if(currentMode!=5||token!=fetchToken)return;
                 pttFinished=true;
                 if(error==null && data!=null){
-                    boolean stored=PriceCache.putPtt(this,data);
-                    PriceCache.Snapshot<OilPriceParser.Feed> accepted=PriceCache.getPtt(this);
+                    boolean stored=PriceCache.putPtt(this,province,data);
+                    PriceCache.Snapshot<OilPriceParser.Feed> accepted=PriceCache.getPtt(this,province);
                     if(stored){latestPtt=data;pttCached=false;pttProblem=null;}
                     else if(accepted!=null){latestPtt=accepted.data;pttCached=true;pttCachedAt=accepted.savedAtMillis;
                         pttProblem="ใช้ราคาที่บันทึกไว้ (ต้นทางเก่ากว่าหรือบันทึกใหม่ไม่สำเร็จ)";}
@@ -428,7 +428,7 @@ public final class MainActivity extends Activity {
                 renderFuel();
             });
         }
-        if(brand==0||brand==2){
+        if((brand==0||brand==2)&&referenceArea()){
             PriceService.fuel((data,error)->{
                 if(currentMode!=5||token!=fetchToken)return;
                 bangchakFinished=true;
@@ -446,7 +446,7 @@ public final class MainActivity extends Activity {
     }
     private void renderFuel(){
         if(currentMode!=5||liveResults==null||fuelFilter==null)return;
-        if(!referenceArea()){renderRegionalUnavailable();return;}
+        
         liveResults.removeAllViews();int brand=currentFuelBrand();String selected=String.valueOf(fuelFilter.getSelectedItem());long now=System.currentTimeMillis();
         if(brand==0||brand==1){
             if(latestPtt==null)emptyCard("PTT OR",!pttFinished);
@@ -454,14 +454,15 @@ public final class MainActivity extends Activity {
                 boolean recent=true;long stamp=0;String rawTime="";int count=0;
                 for(OilPriceParser.Item e:latestPtt.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.product))){recent&=e.isRecent(now);if(e.publishedMillis>=stamp){stamp=e.publishedMillis;rawTime=e.publishedAt;}}
                 String state=pttCached?"ราคาที่บันทึกไว้":recent?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง";
-                LinearLayout c=marketCard("PTT OR",state,pttCached||!recent?WARNING:0xff95dfbf,"Bangkok reference · บาท/ลิตร");
-                for(OilPriceParser.Item e:latestPtt.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.product))){addFuelRow(c,e.product,e.price);count++;}
+                LinearLayout c=marketCard("PTT OR",state,pttCached||!recent?WARNING:0xff95dfbf,(referenceArea()?"Bangkok reference":String.valueOf(provincePicker.getSelectedItem()))+" · บาท/ลิตร (local taxes may differ)");
+                for(OilPriceParser.Item e:latestPtt.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.product))){addFuelRow(c,e.product+(e.location.isEmpty()?"":" · "+e.location),e.price);count++;}
                 if(count==0)c.addView(label("ไม่มีราคาสำหรับชนิดที่เลือก",14,MUTED,false));
                 attachCard(c,"ประกาศ: "+(stamp>0?formatSavedAt(stamp):rawTime.isEmpty()?"ไม่ระบุ":rawTime)+"\nแหล่งข้อมูล: PTT OR"+(pttCached?" · แคช "+formatSavedAt(pttCachedAt):""));
             }
         }
         if(brand==0||brand==2){
-            if(latestFuel==null)emptyCard("บางจาก",!bangchakFinished);
+            if(!referenceArea()){LinearLayout c=marketCard("Bangchak","Unavailable",WARNING,"Regional feed not verified");c.addView(description("No province-specific feed. Select Bangkok reference to view reference prices."));attachCard(c,"Source: Bangchak");}
+            else if(latestFuel==null)emptyCard("บางจาก",!bangchakFinished);
             else{LinearLayout c=marketCard("บางจาก",bangchakCached?"ราคาที่บันทึกไว้":latestFuel.fresh?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง",bangchakCached||!latestFuel.fresh?WARNING:0xff95dfbf,"Bangkok reference · บาท/ลิตร");int count=0;
                 for(PriceService.FuelItem e:latestFuel.items)if("ทั้งหมด".equals(selected)||selected.equals(FreshnessPolicy.commonFuelType(e.name))){addFuelRow(c,e.name,e.price);count++;}if(count==0)c.addView(label("ไม่มีราคาสำหรับชนิดที่เลือก",14,MUTED,false));
                 attachCard(c,"ประกาศ: "+latestFuel.updateString+"\nแหล่งข้อมูล: บางจาก"+(bangchakCached?" · แคช "+formatSavedAt(bangchakCachedAt):""));}
@@ -470,8 +471,7 @@ public final class MainActivity extends Activity {
         liveStatus.setText(failed?"อัปเดตไม่สำเร็จ · แตะดูรายละเอียด":"");liveStatus.setVisibility(failed?View.VISIBLE:View.GONE);liveStatus.setTextColor(WARNING);liveStatus.setOnClickListener(failed?v->showFuelDetails():null);
     }
     private int marketIndex(){int i=goldMarket==null?0:goldMarket.getSelectedItemPosition();return i==1&&metalMode!=null&&metalMode.getSelectedItemPosition()==0?4:Math.max(0,i);}
-    private boolean referenceArea(){return provincePicker==null||(provincePicker.getSelectedItemPosition()==0&&(districtPicker==null||districtPicker.getSelectedItemPosition()==0));}
-    private void renderRegionalUnavailable(){liveResults.removeAllViews();liveStatus.setVisibility(View.VISIBLE);liveStatus.setText("Regional data unavailable · "+provincePicker.getSelectedItem());liveStatus.setTextColor(WARNING);liveStatus.setOnClickListener(null);liveResults.addView(description("ยังไม่มี API รายจังหวัด/อำเภอที่ตรวจสอบได้สำหรับแบรนด์นี้ — ไม่ใช้ราคากรุงเทพฯ แทน"));TextView official=button("Open OR regional price information ↗",FUNCTION,WHITE);liveResults.addView(official,new LinearLayout.LayoutParams(-1,dp(48)));official.setOnClickListener(v->openUrl("https://www.pttor.com/news/oil-price"));}
+    private boolean referenceArea(){return provincePicker==null||provincePicker.getSelectedItemPosition()==0;}
     private void loadMetal(){
         if(currentMode!=6||liveResults==null||liveStatus==null||paused)return;
         if(marketIndex()>=2){fetchToken++;liveResults.removeAllViews();liveStatus.setVisibility(View.VISIBLE);liveStatus.setTextColor(MUTED);liveStatus.setOnClickListener(null);if(stream==null)stream=new MarketStream(this);stream.attach(liveResults,marketIndex()==2?"Crypto":marketIndex()==3?"Forex":"Metals",liveStatus);return;}

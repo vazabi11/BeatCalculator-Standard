@@ -45,6 +45,26 @@ public final class PttOilService {
         String p="<DD>"+day.getDayOfMonth()+"</DD><MM>"+day.getMonthValue()+"</MM><YYYY>"+day.getYear()+"</YYYY>";
         return call("GetOilPrice",p,"EN");
     }
+    public static OilPriceParser.Feed fetchProvince(String province) throws Exception {
+        if(province==null || province.trim().isEmpty())throw new IllegalArgumentException("Province required");
+        String p="<Province>"+escapeXml(ProvinceNames.english(province))+"</Province>";
+        Exception last=null;
+        String thai="<Province>"+escapeXml(province)+"</Province>";
+        try {return regional(call("CurrentOilPriceProvincial",p,"en"),"CurrentOilPriceProvincial");}catch(Exception e){last=e;}
+        try {return regional(call("CurrentOilPriceProvincial",thai,"th"),"CurrentOilPriceProvincial");}catch(Exception e){last=e;}
+        LocalDate now=LocalDate.now(BANGKOK);
+        for(int i=0;i<3;i++){
+            LocalDate d=now.minusDays(i);
+            String date="<DD>"+d.getDayOfMonth()+"</DD><MM>"+d.getMonthValue()+"</MM><YYYY>"+d.getYear()+"</YYYY>";
+            try{return regional(call("GetOilPriceProvincial",date+p,"en"),"GetOilPriceProvincial");}catch(Exception e){last=e;}
+        }
+        throw new Exception("PTT provincial result unavailable: "+province+" · "+(last==null?"":last.getMessage()));
+    }
+    static OilPriceParser.Feed regional(String xml,String operation) throws Exception {
+        if(OilPriceParser.parseXml(xml).getElementsByTagNameNS("*",operation+"Result").getLength()!=1)
+            throw new Exception("Unexpected provincial response");
+        return OilPriceParser.parse(xml);
+    }
     public static OilPriceParser.Feed fetchFeed() throws Exception {
         // A connection or HTTP failure must not trigger a sequence of extra requests.
         String currentResponse=call("CurrentOilPrice","","EN");

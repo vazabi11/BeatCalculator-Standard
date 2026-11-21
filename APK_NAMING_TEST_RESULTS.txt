@@ -1,0 +1,9 @@
+APK naming workflow: YAML parsed; Bash syntax checked; inline Python compiled.
+5.3.1 valid: PASS
+Future version dynamic: PASS
+Old APK version rejected: PASS
+Wrong versionCode rejected: PASS
+Wrong package rejected: PASS
+Non-debug APK rejected: PASS
+Unsafe name rejected: PASS
+Tests use simulated aapt metadata, not a built Android app.

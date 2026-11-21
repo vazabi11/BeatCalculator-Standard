@@ -69,6 +69,18 @@ public final class PriceService {
     public static void ptt(Callback<OilPriceParser.Feed> cb) {
         async(() -> PttOilService.fetchFeed(),cb);
     }
+    public static void ptt(String province,Callback<OilPriceParser.Feed> cb){
+        async(()->province.isEmpty()?PttOilService.fetchFeed():PttOilService.fetchProvince(province),cb);
+    }
+    public static void snapshot(String symbol,Callback<JSONObject> cb){
+        if(!symbol.matches("[A-Z]{6}")){cb.done(null,"Invalid symbol");return;}
+        async(()->new JSONObject(read("https://biquote.io/api/"+symbol)),cb);
+    }
+    public static void snapshots(String[] symbols,Callback<org.json.JSONArray> cb){
+        StringBuilder url=new StringBuilder("https://biquote.io/api/latest?");
+        for(String s:symbols){String x=s.replace("/","");if(!x.matches("[A-Z]{6}"))continue;if(url.charAt(url.length()-1)!='?')url.append('&');url.append("symbols=").append(x);}
+        async(()->{Object raw=new org.json.JSONTokener(read(url.toString())).nextValue();if(raw instanceof org.json.JSONArray)return (org.json.JSONArray)raw;if(raw instanceof JSONObject){JSONObject obj=(JSONObject)raw;for(String k:new String[]{"ticks","data","items"}){org.json.JSONArray arr=obj.optJSONArray(k);if(arr!=null)return arr;}}throw new Exception("Unexpected snapshot schema");},cb);
+    }
     private static String marketError(Exception ex) {
         String message=ex.getMessage()==null?"ไม่สามารถอ่านข้อมูลได้":ex.getMessage();
         if(message.contains("HTTP 402"))return "จำกัดสิทธิ์การเข้าถึง (402)";

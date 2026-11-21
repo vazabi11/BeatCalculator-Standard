@@ -1,4 +1,59 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
- <path android:fillColor="#102D46" android:strokeColor="#35C6F4" android:strokeWidth="2.4" android:pathData="M34,20H74Q88,20 88,34V74Q88,88 74,88H34Q20,88 20,74V34Q20,20 34,20Z"/>
- <path android:strokeColor="#35C6F4" android:strokeWidth="4.4" android:strokeLineCap="round" android:pathData="M29,38H47 M38,29V47 M61,38H79 M30,61L46,77 M46,61L30,77 M61,65H79 M61,74H79"/>
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer app tile -->
+    <path
+        android:fillColor="#0F2740"
+        android:strokeColor="#43D6FF"
+        android:strokeWidth="1.8"
+        android:pathData="M28,16H80C89.94,16 96,22.06 96,32V80C96,89.94 89.94,96 80,96H28C18.06,96 12,89.94 12,80V32C12,22.06 18.06,16 28,16Z" />
+
+    <!-- Four calculator buttons -->
+    <path
+        android:fillColor="#123A59"
+        android:strokeColor="#1CCFFF"
+        android:strokeWidth="1.2"
+        android:pathData="M28,28H47C51.42,28 55,31.58 55,36V47C55,51.42 51.42,55 47,55H28C23.58,55 20,51.42 20,47V36C20,31.58 23.58,28 28,28Z" />
+    <path
+        android:fillColor="#123A59"
+        android:strokeColor="#1CCFFF"
+        android:strokeWidth="1.2"
+        android:pathData="M61,28H80C84.42,28 88,31.58 88,36V47C88,51.42 84.42,55 80,55H61C56.58,55 53,51.42 53,47V36C53,31.58 56.58,28 61,28Z" />
+    <path
+        android:fillColor="#123A59"
+        android:strokeColor="#1CCFFF"
+        android:strokeWidth="1.2"
+        android:pathData="M28,61H47C51.42,61 55,64.58 55,69V80C55,84.42 51.42,88 47,88H28C23.58,88 20,84.42 20,80V69C20,64.58 23.58,61 28,61Z" />
+    <path
+        android:fillColor="#123A59"
+        android:strokeColor="#1CCFFF"
+        android:strokeWidth="1.2"
+        android:pathData="M61,61H80C84.42,61 88,64.58 88,69V80C88,84.42 84.42,88 80,88H61C56.58,88 53,84.42 53,80V69C53,64.58 56.58,61 61,61Z" />
+
+    <!-- Symbols -->
+    <path
+        android:strokeColor="#66E9FF"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M37.5,35V48M31,41.5H44" />
+    <path
+        android:strokeColor="#66E9FF"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M64,41.5H77" />
+    <path
+        android:strokeColor="#66E9FF"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M32.5,73.5L42.5,63.5M42.5,73.5L32.5,63.5" />
+    <path
+        android:strokeColor="#66E9FF"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M64,68H77M64,76H77" />
+
 </vector>

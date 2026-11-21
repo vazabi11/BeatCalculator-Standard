@@ -18,5 +18,5 @@ try:
 except Exception as e:
     print('Binance stream unavailable:',type(e).__name__,str(e)[:100]);failures.append('Binance')
 print('Twelve Data: requires personally authorized key and entitlement; not tested here.')
-print('Bank-specific and regional fuel feeds: not configured.')
+print('Bank-specific and regional fuel feeds: see LiveConnectivityTest report.')
 sys.exit(1 if failures else 0)

@@ -20,11 +20,14 @@ import org.w3c.dom.NodeList;
 public final class OilPriceParser {
     private OilPriceParser() {}
     public static final class Item {
-        public final String product, publishedAt;
+        public final String product, publishedAt, location;
         public final double price;
         public final long publishedMillis;
         public Item(String product, double price, String publishedAt, long publishedMillis) {
-            this.product=product; this.price=price; this.publishedAt=publishedAt; this.publishedMillis=publishedMillis;
+            this(product,price,publishedAt,publishedMillis,"");
+        }
+        public Item(String product,double price,String publishedAt,long publishedMillis,String location){
+            this.product=product; this.price=price; this.publishedAt=publishedAt; this.publishedMillis=publishedMillis;this.location=location;
         }
         public boolean isRecent(long now) {
             return FreshnessPolicy.isRecent(publishedMillis, now, 72L*60*60*1000);
@@ -80,7 +83,9 @@ public final class OilPriceParser {
         if(faults.getLength()>0) throw new Exception("PTT: บริการ SOAP ส่ง Fault กลับมา");
         NodeList results=nodes(soap,"CurrentOilPriceResult");
         if(results.getLength()==0) results=nodes(soap,"GetOilPriceResult");
-        if(results.getLength()==0) throw new Exception("PTT: ไม่พบ CurrentOilPriceResult/GetOilPriceResult");
+        if(results.getLength()==0) results=nodes(soap,"CurrentOilPriceProvincialResult");
+        if(results.getLength()==0) results=nodes(soap,"GetOilPriceProvincialResult");
+        if(results.getLength()==0) throw new Exception("PTT: missing oil price result");
         Element result=(Element)results.item(0);
         Document table;
         boolean nested=false;
@@ -114,7 +119,7 @@ public final class OilPriceParser {
                     try {ms=LocalDateTime.parse(stamp).atZone(ZoneId.of("Asia/Bangkok")).toInstant().toEpochMilli();}
                     catch(Exception ignored) { try { ms=java.time.Instant.parse(MarketTime.normalize(stamp,"")).toEpochMilli(); }catch(Exception unavailable){} }
                 }
-                output.add(new Item(product,price,stamp,ms));
+                output.add(new Item(product,price,stamp,ms,firstChild(e,"LOCATION","LocationName","DISTRICT","DistrictName","AREA")));
             } catch(NumberFormatException ignored){invalidPrice++;}
         }
         if(output.isEmpty()) throw new Exception("PTT: ไม่มีราคาที่ใช้ได้ (รายการ="+total+", ชื่อว่าง="+emptyNames+", ราคาไม่มีค่า="+emptyPrice+", ราคาไม่ถูกต้อง="+invalidPrice+")");
