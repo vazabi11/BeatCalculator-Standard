@@ -1,0 +1,16 @@
+Note: app/src/main/java/com/beatoflove/standardcalculator/PttOilService.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+PASS 42 calculator engine tests
+PASS 25 advanced/unit tests
+PASS 11 market feed tests
+PASS 10 cache policy tests
+PASS 10 PTT diagnostic tests
+PASS 6 publisher time tests
+PASS 135 Formula Pro assertions
+FinancialMathTest: 30 passed
+RegionalFuelTest: 6 passed
+UiPolicyTest: 55 passed
+ReferenceRateTest: 11 passed
+Total: 341 standalone checks; 11 new direction/delta checks.
+Java parser: 37 source/test files. XML syntax parsed. Android compile/emulator/device tests: NOT RUN (Android SDK unavailable).
+GitHub deployment: atomic tree creation HTTP 403; no push or new APK verified. Live API integration not run.

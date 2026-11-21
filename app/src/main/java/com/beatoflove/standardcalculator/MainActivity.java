@@ -103,10 +103,11 @@ public final class MainActivity extends Activity {
     private void buildShell(){
         root=vertical();root.setBackgroundColor(BG);root.setPadding(dp(4),dp(2),dp(4),dp(5));setContentView(root);
         LinearLayout bar=horizontal();bar.setGravity(Gravity.CENTER_VERTICAL);bar.setBackgroundColor(HEADER);
-        root.addView(bar,new LinearLayout.LayoutParams(-1,dp(54)));
+        int shortScreen=getResources().getConfiguration().screenHeightDp<600?1:0;
+        root.addView(bar,new LinearLayout.LayoutParams(-1,dp(shortScreen==1?44:54)));
         android.widget.ImageView icon=new android.widget.ImageView(this);
         icon.setImageResource(R.drawable.ic_calculator_foreground);icon.setContentDescription("Calculator — About");
-        icon.setOnClickListener(v->showAbout());bar.addView(icon,new LinearLayout.LayoutParams(dp(42),dp(44)));
+        icon.setOnClickListener(v->showAbout());bar.addView(icon,new LinearLayout.LayoutParams(dp(42),-1));
         LinearLayout identity=vertical();identity.setGravity(Gravity.CENTER_VERTICAL);
         bar.addView(identity,new LinearLayout.LayoutParams(0,-1,1));
         identity.addView(label("SiraCalc",18,WHITE,true));identity.addView(label("by Sirawit Labs",10,MUTED,false));
@@ -118,7 +119,7 @@ public final class MainActivity extends Activity {
         bar.addView(topButton("□",this::toggleFull));
         bar.addView(topButton("×",this::finish));
         tabsScroll=new HorizontalScrollView(this);tabsScroll.setHorizontalScrollBarEnabled(false);tabsScroll.setFillViewport(false);
-        root.addView(tabsScroll,new LinearLayout.LayoutParams(-1,dp(52)));
+        root.addView(tabsScroll,new LinearLayout.LayoutParams(-1,dp(shortScreen==1?41:52)));
         tabsRow=horizontal();tabsRow.setGravity(Gravity.CENTER_VERTICAL);tabsScroll.addView(tabsRow);
         page=vertical();root.addView(page,new LinearLayout.LayoutParams(-1,0,1));
     }
@@ -151,7 +152,7 @@ public final class MainActivity extends Activity {
     }
     private void buildCalculator(int mode){
         LinearLayout modeBar=horizontal();modeBar.setGravity(Gravity.CENTER_VERTICAL);
-        page.addView(modeBar,new LinearLayout.LayoutParams(-1,dp(54)));
+        page.addView(modeBar,new LinearLayout.LayoutParams(-1,0,1.0f));
         modeBar.addView(action("☰",dp(52),()->showModeDialog()));
         TextView modeTitle=label(MODES[mode],24,WHITE,true);modeTitle.setGravity(Gravity.CENTER_VERTICAL);
         modeBar.addView(modeTitle,new LinearLayout.LayoutParams(-2,-1));
@@ -159,32 +160,33 @@ public final class MainActivity extends Activity {
         modeBar.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));
         modeBar.addView(action("◴",dp(52),this::showHistory));
         LinearLayout display=vertical();display.setGravity(Gravity.BOTTOM|Gravity.RIGHT);display.setPadding(dp(8),dp(3),dp(13),dp(4));
-        display.setBackground(bordered(0xff102531,0xff304c5c,9));page.addView(display,new LinearLayout.LayoutParams(-1,0,1));
+        display.setBackground(bordered(0xff102531,0xff304c5c,9));page.addView(display,new LinearLayout.LayoutParams(-1,0,2.7f));
         expr=label("",16,MUTED,false);expr.setSingleLine(true);expr.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
-        display.addView(expr,new LinearLayout.LayoutParams(-1,dp(30)));
+        display.addView(expr,new LinearLayout.LayoutParams(-1,0,1));
+        fitKey(expr,16);
         resultScroll=new HorizontalScrollView(this);resultScroll.setHorizontalScrollBarEnabled(false);resultScroll.setFillViewport(true);
         resultScroll.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        display.addView(resultScroll,new LinearLayout.LayoutParams(-1,dp(85)));
+        display.addView(resultScroll,new LinearLayout.LayoutParams(-1,0,3));
         result=label("0",64,WHITE,true);result.setSingleLine(true);result.setTextDirection(View.TEXT_DIRECTION_LTR);
         result.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);result.setOnClickListener(v->showFullResult());
         resultScroll.addView(result,new HorizontalScrollView.LayoutParams(-2,-1));
         hint=label("↔ ปัดซ้ายเพื่อดูตัวเลขที่เหลือ • แตะเพื่อดูทั้งหมด",10,MUTED,false);
-        hint.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);display.addView(hint,new LinearLayout.LayoutParams(-1,dp(17)));
+        hint.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);display.addView(hint,new LinearLayout.LayoutParams(-1,0,.65f));fitKey(hint,10);
         if(mode>=1){
-            LinearLayout memories=horizontal();page.addView(memories,new LinearLayout.LayoutParams(-1,dp(48)));
+            LinearLayout memories=horizontal();page.addView(memories,new LinearLayout.LayoutParams(-1,0,.8f));
             for(String k:new String[]{"MC","MR","M+","M−","MS","M▾"}){
                 TextView b=label(k,15,WHITE,false);b.setGravity(Gravity.CENTER);b.setBackground(ripple(BG,dp(5)));
                 b.setOnClickListener(v->{if("M▾".equals(k))showMemory();else {engine.press(k);afterKey();}});
-                memories.addView(b,new LinearLayout.LayoutParams(0,-1,1));
+                fitKey(b,15);memories.addView(b,new LinearLayout.LayoutParams(0,-1,1));
                 if("MC".equals(k))memoryClear=b;if("MR".equals(k))memoryRecall=b;if("M▾".equals(k))memoryArrow=b;
             }
         }
         if(mode==2){
-            LinearLayout options=horizontal();page.addView(options,new LinearLayout.LayoutParams(-1,dp(35)));
+            LinearLayout options=horizontal();page.addView(options,new LinearLayout.LayoutParams(-1,0,.7f));
             TextView deg=label(engine.isDegreeMode()?"DEG  (แตะเพื่อเปลี่ยน RAD)":"RAD  (แตะเพื่อเปลี่ยน DEG)",12,BLUE,false);
             deg.setGravity(Gravity.CENTER_VERTICAL);deg.setPadding(dp(12),0,0,0);
             deg.setOnClickListener(v->{engine.setDegreeMode(!engine.isDegreeMode());deg.setText(engine.isDegreeMode()?"DEG  (แตะเพื่อเปลี่ยน RAD)":"RAD  (แตะเพื่อเปลี่ยน DEG)");});
-            options.addView(deg,new LinearLayout.LayoutParams(-1,-1));
+            fitKey(deg,12);options.addView(deg,new LinearLayout.LayoutParams(-1,-1));
         }
         String[][] keys;
         if(mode==0)keys=new String[][]{
@@ -199,16 +201,13 @@ public final class MainActivity extends Activity {
             {"7","8","9","mod","−"},{"4","5","6","1/x","+"},
             {"1","2","3","%","CE"},{"±","0",".","00","="}
         };
-        DisplayMetrics screen=getResources().getDisplayMetrics();
-        int heightDp=Math.round(screen.heightPixels/screen.density);
-        int dpHeight=Math.min(mode==2?530:510,Math.max(mode==2?350:290,Math.round(heightDp*(mode==2?.57f:.55f))));
-        LinearLayout keypad=vertical();page.addView(keypad,new LinearLayout.LayoutParams(-1,dp(dpHeight)));
+        LinearLayout keypad=vertical();page.addView(keypad,new LinearLayout.LayoutParams(-1,0,keys.length));
         for(String[] keysRow:keys){
             LinearLayout row=horizontal();keypad.addView(row,new LinearLayout.LayoutParams(-1,0,1));
             for(String k:keysRow){
                 TextView b=label("1/x".equals(k)?"¹⁄ₓ":k,mode==2?18:25,"=".equals(k)?Color.BLACK:WHITE,false);
                 int fill="=".equals(k)?BLUE:((k.length()==1&&"0123456789.".contains(k))||"00".equals(k)||"±".equals(k)?DIGIT:FUNCTION);
-                b.setGravity(Gravity.CENTER);b.setClickable(true);b.setFocusable(true);b.setBackground(ripple(fill,dp(5)));
+                b.setGravity(Gravity.CENTER);b.setClickable(true);b.setFocusable(true);b.setBackground(ripple(fill,dp(5)));fitKey(b,mode==2?18:25);
                 b.setOnClickListener(v->{
                     if("00".equals(k)){engine.press("0");engine.press("0");}
                     else if("cube".equals(k))engine.press("cube");
@@ -218,8 +217,11 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(dp(1),dp(2),dp(1),dp(2));row.addView(b,lp);
             }
         }
+        fitKey(modeTitle,24);for(int i=0;i<modeBar.getChildCount();i++){View v=modeBar.getChildAt(i);if(v instanceof TextView&&v!=modeTitle)fitKey((TextView)v,24);}
+        resultScroll.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(resultScroll==v&&result!=null&&(r-l!=or-ol||b-t!=ob-ot))fitResult(result.getText().toString());});
         updateScreen();
     }
+    private void fitKey(TextView v,int max){v.setSingleLine(true);v.setHorizontallyScrolling(false);v.setAutoSizeTextTypeUniformWithConfiguration(7,Math.max(8,max),1,TypedValue.COMPLEX_UNIT_SP);}
     private void updateScreen(){
         if(result==null)return;
         String v=engine.getDisplay();result.setText(v);expr.setText(engine.getExpression());
@@ -232,7 +234,8 @@ public final class MainActivity extends Activity {
         int width=resultScroll.getWidth()-dp(2);if(width<=0)return;
         DisplayMetrics dm=getResources().getDisplayMetrics();
         float max=TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,66,dm);
-        float min=TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,27,dm);
+        max=Math.max(1,Math.min(max,resultScroll.getHeight()*.78f));
+        float min=Math.min(max,TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,27,dm));
         Paint p=new Paint(result.getPaint());p.setTextSize(max);
         float natural=p.measureText(expected), size=natural<=width?max:Math.max(min,max*width/natural);
         result.setTextSize(TypedValue.COMPLEX_UNIT_PX,size);p.setTextSize(size);
@@ -363,7 +366,7 @@ public final class MainActivity extends Activity {
             String savedBrand=getSharedPreferences("fuel53",0).getString("brandName","");int savedBrandIndex=java.util.Arrays.asList(FUEL_BRANDS).indexOf(savedBrand);if(savedBrandIndex<0){int old=getSharedPreferences("fuel53",0).getInt("brand",1);savedBrandIndex=old>=0&&old<=3?old:1;}fuelBrand.setSelection(savedBrandIndex);fuelFilter.setSelection(0);
         }else{
             goldMarket=spinner(new String[]{"Thai Gold","Metals","Crypto","Forex"});selector(holder,"Market",goldMarket);
-            metalMode=spinner(new String[]{"Market quotes (automatic)","Reference / latest available"});metalMode.setSelection(1);LinearLayout metalModeRow=selector(holder,"Feed",metalMode);
+            metalMode=spinner(new String[]{"Market quotes","Reference / latest"});metalMode.setSelection(1);LinearLayout metalModeRow=selector(holder,"Feed",metalMode);
             metalPicker=spinner(new String[]{"All symbols"});LinearLayout metalRow=selector(holder,"Symbol",metalPicker);
             Runnable changeMarket=()->{if(currentMode!=6)return;int m=marketIndex();metalModeRow.setVisibility(m==0?View.GONE:View.VISIBLE);metalRow.setVisibility(m==0?View.GONE:View.VISIBLE);String[] codes=m==1?MarketStream.METAL:m==2?MarketStream.CRYPTO:MarketStream.FX;String[] opts=new String[codes.length+1];opts[0]="All symbols";System.arraycopy(codes,0,opts,1,codes.length);metalPicker.setAdapter(spinnerAdapter(opts));metalPicker.setSelection(0);scheduleMarket();};
             goldMarket.setOnItemSelectedListener(selected(changeMarket));metalMode.setOnItemSelectedListener(selected(this::scheduleMarket));metalPicker.setOnItemSelectedListener(selected(()->{if(marketIndex()>0)scheduleMarket();}));
@@ -393,7 +396,7 @@ public final class MainActivity extends Activity {
         TextView badge=label(grade,11,(grade.equals("Gasohol 95")||grade.equals("E20"))?Color.BLACK:WHITE,true);badge.setGravity(Gravity.CENTER);badge.setPadding(dp(3),dp(7),dp(3),dp(7));badge.setBackground(bordered(fuelColor(grade),fuelColor(grade),7));row.addView(badge,new LinearLayout.LayoutParams(dp(86),-2));
         TextView product=label(name,13,WHITE,false);product.setPadding(dp(8),0,dp(6),0);row.addView(product,new LinearLayout.LayoutParams(0,-2,1));row.addView(label(String.format(Locale.US,"%.2f",price),22,WHITE,true),new LinearLayout.LayoutParams(-2,-2));card.addView(row);rule(card);
     }
-    private void attachCard(LinearLayout card,String footer){space(card,9);TextView source=label(footer,11,MUTED,false);source.setLineSpacing(dp(2),1);card.addView(source);liveResults.addView(card,new LinearLayout.LayoutParams(-1,-2));space(liveResults,8);}
+    private void attachCard(LinearLayout card,String footer){space(card,9);TextView source=label(footer,currentMode==6?10:11,MUTED,false);source.setLineSpacing(dp(2),1);card.addView(source);liveResults.addView(card,new LinearLayout.LayoutParams(-1,-2));space(liveResults,8);}
     private void emptyCard(String name,boolean checking){LinearLayout c=marketCard(name,checking?"กำลังตรวจสอบ":"ไม่มีข้อมูล",checking?MUTED:WARNING,"");TextView empty=label(checking?"กำลังดึงราคาใหม่":"ยังไม่มีราคาที่ตรวจสอบได้",15,WHITE,true);empty.setPadding(0,dp(10),0,dp(8));c.addView(empty);attachCard(c,checking?"":"ยังไม่มีราคาสำรองสำหรับรายการนี้");}
     private final Runnable marketSelection=()->startPolling();
     private void scheduleMarket(){handler.removeCallbacks(marketSelection);handler.postDelayed(marketSelection,200);}
@@ -517,7 +520,7 @@ public final class MainActivity extends Activity {
                 if(error==null&&data!=null){
                     boolean stored=PriceCache.putThaiGold(this,data);
                     PriceCache.Snapshot<PriceService.ThaiGoldData> accepted=PriceCache.getThaiGold(this);
-                    if(stored){renderThaiGold(data,false,0,null,false);}
+                    if(stored){renderThaiGold(data,false,0,null,false,cached==null?null:cached.data);}
                     else if(accepted!=null){renderThaiGold(accepted.data,true,accepted.savedAtMillis,
                         "ต้นทางส่งข้อมูลที่เก่ากว่าแคช หรือบันทึกสำรองไม่สำเร็จ",false);}
                     else {renderThaiGold(data,false,0,"ได้รับราคาใหม่ แต่ยังบันทึกลงเครื่องไม่ได้",false);}
@@ -547,14 +550,15 @@ public final class MainActivity extends Activity {
         }
     }
     private void marketStatus(String failure,boolean checking,boolean cached){liveStatus.setVisibility(View.VISIBLE);liveStatus.setText(checking?"กำลังตรวจสอบราคาใหม่":failure!=null?"อัปเดตไม่สำเร็จ · แตะดูรายละเอียด":cached?"ราคาที่บันทึกไว้ (ไม่ใช่ราคาสด)":"");liveStatus.setTextColor(failure!=null||cached?WARNING:MUTED);liveStatus.setVisibility(liveStatus.getText().length()==0?View.GONE:View.VISIBLE);liveStatus.setOnClickListener(failure==null?null:v->new AlertDialog.Builder(this).setTitle("รายละเอียดการเชื่อมต่อ").setMessage(failure).setPositiveButton("ปิด",null).show());}
-    private void renderThaiGold(PriceService.ThaiGoldData data,boolean cache,long savedAt,String failure,boolean checking){
+    private void renderThaiGold(PriceService.ThaiGoldData data,boolean cache,long savedAt,String failure,boolean checking){renderThaiGold(data,cache,savedAt,failure,checking,null);}
+    private void renderThaiGold(PriceService.ThaiGoldData data,boolean cache,long savedAt,String failure,boolean checking,PriceService.ThaiGoldData previous){
         if(liveResults==null||liveStatus==null)return;liveResults.removeAllViews();
         if(data==null)emptyCard("ทองไทย 96.5%",checking);
         else{LinearLayout c=marketCard("ทองไทย 96.5%",cache?"ราคาที่บันทึกไว้":data.fresh?"✓ ข้อมูลล่าสุด":"ข้อมูลย้อนหลัง",cache||!data.fresh?WARNING:0xff95dfbf,"บาท / บาททองคำ");
-        c.addView(priceRow("ทองคำแท่ง · รับซื้อ",formatMoney(data.buyBar)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
-        c.addView(priceRow("ทองคำแท่ง · ขายออก",formatMoney(data.sellBar)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
-        c.addView(priceRow("รูปพรรณ · ฐานรับซื้อ",formatMoney(data.buyOrnament)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
-        c.addView(priceRow("รูปพรรณ · ขายออก",formatMoney(data.sellOrnament)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
+        c.addView(goldPriceRow("ทองคำแท่ง · รับซื้อ",data.buyBar,previous==null?null:previous.buyBar,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
+        c.addView(goldPriceRow("ทองคำแท่ง · ขายออก",data.sellBar,previous==null?null:previous.sellBar,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
+        c.addView(goldPriceRow("รูปพรรณ · ฐานรับซื้อ",data.buyOrnament,previous==null?null:previous.buyOrnament,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
+        c.addView(goldPriceRow("รูปพรรณ · ขายออก",data.sellOrnament,previous==null?null:previous.sellOrnament,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
         attachCard(c,"ประกาศ: "+formatThaiTime(data.publishedAt)+(data.updateRound>0?" · ครั้งที่ "+data.updateRound:"")+"\nแหล่งข้อมูล: "+data.source+" · ไม่รวมค่ากำเหน็จ"+(cache?"\nแคช: "+formatSavedAt(savedAt):""));}
         marketStatus(failure,checking,cache&&data!=null);
     }
@@ -580,6 +584,9 @@ public final class MainActivity extends Activity {
     private static String formatMoney(double price){
         DecimalFormat f=new DecimalFormat("#,##0.00",DecimalFormatSymbols.getInstance(Locale.US));
         return f.format(price);
+    }
+    private LinearLayout goldPriceRow(String name,double value,Double previous,boolean comparable){
+        int d=UiPolicy.priceDirection(previous,value,comparable);LinearLayout row=priceRow(name,UiPolicy.pricePrefix(d)+formatMoney(value));int color=d>0?0xff49dca0:d<0?0xffff767d:WHITE;TextView main=(TextView)row.getChildAt(1);main.setTextColor(color);if(d!=0){row.removeView(main);LinearLayout right=vertical();right.setGravity(Gravity.RIGHT);right.addView(main);TextView change=label(UiPolicy.priceDelta(previous,value),10,color,false);right.addView(change);row.addView(right);}return row;
     }
     private LinearLayout priceRow(String name,String value){
         LinearLayout row=horizontal();row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(12),0,dp(12),0);
