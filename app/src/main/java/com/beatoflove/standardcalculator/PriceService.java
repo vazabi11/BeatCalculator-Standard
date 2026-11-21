@@ -66,6 +66,12 @@ public final class PriceService {
         if(!from.matches("[A-Z]{3}")||!to.matches("[A-Z]{3}")){cb.done(null,"Invalid currency");return;}
         async(()->new JSONObject(read("https://api.frankfurter.dev/v2/rate/"+from+"/"+to)),cb);
     }
+    public static void referenceBoard(String base,String[] quotes,Callback<JSONArray> cb){
+        if(!base.matches("[A-Z]{3}")||quotes.length==0||quotes.length>100){cb.done(null,"Invalid currencies");return;}
+        for(String quote:quotes)if(!quote.matches("[A-Z]{3}")){cb.done(null,"Invalid currency");return;}
+        async(()->new JSONArray(read("https://api.frankfurter.dev/v2/rates?base="+base+"&quotes="+String.join(",",quotes))),cb);
+    }
+    public static void cryptoLatest(String symbol,Callback<JSONObject> cb){if(!symbol.matches("[A-Z0-9]{5,15}")){cb.done(null,"Invalid crypto symbol");return;}async(()->new JSONObject(read("https://data-api.binance.vision/api/v3/ticker/24hr?symbol="+symbol)),cb);}
     public static void ptt(Callback<OilPriceParser.Feed> cb) {
         async(() -> PttOilService.fetchFeed(),cb);
     }

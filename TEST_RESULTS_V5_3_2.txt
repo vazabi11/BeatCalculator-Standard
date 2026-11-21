@@ -1,0 +1,17 @@
+PASS 42 calculator engine tests
+PASS 25 advanced/unit tests
+PASS 11 market feed tests
+PASS 10 cache policy tests
+PASS 10 PTT diagnostic tests
+PASS 6 publisher time tests
+PASS 135 Formula Pro assertions
+FinancialMathTest: 30 passed
+RegionalFuelTest: 6 passed
+UiPolicyTest: 44 passed
+Note: app/src/main/java/com/beatoflove/standardcalculator/PttOilService.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Java syntax parsed: 35 files
+Android XML syntax: parsed successfully.
+Python smoke/diagnostics: syntax compiled, not executed against Android/API.
+Network attempt: DNS resolution unavailable (Frankfurter).
+Android SDK/Gradle/adb/emulator absent. Android compile, UI and live integration not verified.

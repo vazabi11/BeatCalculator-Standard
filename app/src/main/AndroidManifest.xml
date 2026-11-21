@@ -4,7 +4,7 @@
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:label="Calculator"
+        android:label="SiraCalc"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/CalculatorTheme"
         android:supportsRtl="true">

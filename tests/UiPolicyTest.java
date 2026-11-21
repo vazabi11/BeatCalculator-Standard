@@ -1,0 +1,6 @@
+package com.beatoflove.standardcalculator;
+import java.util.*;
+public class UiPolicyTest {static int n;static void eq(Object actual,Object expected){n++;if(!Objects.equals(actual,expected))throw new AssertionError(actual+" != "+expected);}public static void main(String[]args){
+ int[] nav={1,2,3,7,8,5,6,4};for(int i=0;i<nav.length;i++){eq(UiPolicy.swipe(nav,nav[i],-100,0,90),nav[Math.min(nav.length-1,i+1)]);eq(UiPolicy.swipe(nav,nav[i],100,0,90),nav[Math.max(0,i-1)]);eq(UiPolicy.swipe(nav,nav[i],40,0,90),nav[i]);eq(UiPolicy.swipe(nav,nav[i],100,100,90),nav[i]);}
+ for(String[] c:new String[][]{{"483736625","483,736,625"},{"-1234567.00","-1,234,567.00"},{"1.2300","1.2300"},{"1.2E10","1.2E10"},{"123/4","123/4"},{"1,000","1,000"},{"0","0"},{"−123456","−123,456"}})eq(UiPolicy.groupNumber(c[0]),c[1]);
+ eq(UiPolicy.defaultDistrict(Arrays.asList("Kanthit","Mueang Surat Thani","Chai Buri")),"Mueang Surat Thani");eq(UiPolicy.defaultDistrict(Arrays.asList("เมืองสุราษฎร์ธานี","ไชยา")),"เมืองสุราษฎร์ธานี");eq(UiPolicy.defaultDistrict(Arrays.asList("Chai Buri","Don Sak")),"");eq(UiPolicy.defaultDistrict(Arrays.asList("Muang Chon Buri")),"Muang Chon Buri");System.out.println("UiPolicyTest: "+n+" passed");}}

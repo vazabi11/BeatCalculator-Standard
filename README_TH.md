@@ -1,9 +1,4 @@
-# Calculator by Sirawit Labs v5.3.1
-Quality & Stability Update — Android Java
-
-คู่มืออัปเดตและข้อจำกัด: GITHUB_WEB_V5_3_1_TH.md
-ผลทดสอบในเครื่องพัฒนา: TEST_RESULTS_V5_3_1.txt
-
-ไฟล์คู่มือและผลทดสอบรุ่นก่อนหน้าเก็บไว้เป็นประวัติ ไม่ใช่ขั้นตอนสำหรับรุ่นปัจจุบัน
-
-ชื่อ Artifact/APK อัตโนมัติ: Calculator-v{versionName} / Calculator-v{versionName}.apk (Debug)
+# SiraCalc by Sirawit Labs — V5.3.3 (Testing)
+Current guide: GITHUB_WEB_V5_3_3_TH.md. Current evidence: TEST_RESULTS_V5_3_3.txt.
+Full archive contains both .github/workflows/build-apk.yml and diagnose-market.yml.
+Older guides and inactive BankRateService / fixture tests are preserved as history; the Currency UI no longer connects to commercial-bank boards.

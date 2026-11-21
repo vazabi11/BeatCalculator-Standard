@@ -1,0 +1,14 @@
+V5.3.3 — standalone Java test output (actual local run)
+PASS 42 calculator engine tests
+PASS 25 advanced/unit tests
+PASS 11 market feed tests
+PASS 10 cache policy tests
+PASS 10 PTT diagnostic tests
+PASS 6 publisher time tests
+PASS 135 Formula Pro assertions
+FinancialMathTest: 30 passed
+RegionalFuelTest: 6 passed
+UiPolicyTest: 44 passed
+ReferenceRateTest: 11 passed
+Total 330 checks/assertions. Not all UI or API tests.
+Android SDK/Gradle/Emulator absent; live DNS curl failed. Android compilation, JUnit integration, device, battery and API availability not verified.

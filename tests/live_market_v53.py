@@ -18,5 +18,16 @@ try:
 except Exception as e:
     print('Binance stream unavailable:',type(e).__name__,str(e)[:100]);failures.append('Binance')
 print('Twelve Data: requires personally authorized key and entitlement; not tested here.')
-print('Bank-specific and regional fuel feeds: see LiveConnectivityTest report.')
+print('Reference exchange board and regional fuel feeds: see LiveConnectivityTest report.')
+for pair in ('EUR/USD','GBP/USD','USD/JPY','USD/THB','USD/CHF','AUD/USD'):
+    try:
+        with urllib.request.urlopen('https://api.frankfurter.dev/v2/rate/'+pair,timeout=15) as r: j=json.load(r)
+        assert j['base']+'/'+j['quote']==pair and math.isfinite(float(j['rate'])) and float(j['rate'])>0
+        datetime.date.fromisoformat(j['date']); print(pair,'reference OK',j['date'])
+    except Exception as e: print(pair,'unavailable',str(e)[:120]);failures.append(pair)
+try:
+    with urllib.request.urlopen('https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT',timeout=15) as r: j=json.load(r)
+    assert j['symbol']=='BTCUSDT' and float(j['lastPrice'])>0 and int(j['closeTime'])>0
+    print('Binance latest snapshot OK',j['closeTime'])
+except Exception as e: print('Binance snapshot unavailable',str(e)[:120]);failures.append('snapshot')
 sys.exit(1 if failures else 0)
