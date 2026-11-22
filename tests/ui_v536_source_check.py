@@ -10,7 +10,7 @@ cur=c.split(' void convert(',1)[1].split(' void exchangeRates(',1)[0]
 checks={
  'version 5.3.6 / code 15':"versionName '5.3.6'" in g and 'versionCode 15' in g,
  'package stable':"applicationId 'com.beatoflove.standardcalculator'" in g,
- 'no duplicate hamburger or mode bar':'modeBar' not in std and 'showModeDialog' not in m,
+ 'no obsolete calculator header references':all(x not in m for x in ('modeBar','modeTitle','showModeDialog')),
  'standard/scientific action strip':'CalcActions.add(this,display,this::copyResult,this::showHistory)' in m,
  'existing calculator history recall': 'engine.useHistoryResult(record)' in m and 'engine.clearHistory()' in m,
  'eight tabs unchanged':'NAV={1,2,3,7,8,5,6,4}' in m,

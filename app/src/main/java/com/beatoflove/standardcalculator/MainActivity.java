@@ -211,7 +211,6 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(dp(1),dp(2),dp(1),dp(2));row.addView(b,lp);
             }
         }
-        fitKey(modeTitle,24);for(int i=0;i<modeBar.getChildCount();i++){View v=modeBar.getChildAt(i);if(v instanceof TextView&&v!=modeTitle)fitKey((TextView)v,24);}
         resultScroll.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(resultScroll==v&&result!=null&&(r-l!=or-ol||b-t!=ob-ot))fitResult(result.getText().toString());});
         updateScreen();
     }
