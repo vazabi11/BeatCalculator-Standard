@@ -152,16 +152,9 @@ public final class MainActivity extends Activity {
         if(mode==5||mode==6)startPolling();
     }
     private void buildCalculator(int mode){
-        LinearLayout modeBar=horizontal();modeBar.setGravity(Gravity.CENTER_VERTICAL);
-        page.addView(modeBar,new LinearLayout.LayoutParams(-1,0,1.0f));
-        modeBar.addView(action("☰",dp(52),()->showModeDialog()));
-        TextView modeTitle=label(MODES[mode],24,WHITE,true);modeTitle.setGravity(Gravity.CENTER_VERTICAL);
-        modeBar.addView(modeTitle,new LinearLayout.LayoutParams(-2,-1));
-        modeBar.addView(action("⧉",dp(50),this::copyResult));
-        modeBar.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));
-        modeBar.addView(action("◴",dp(52),this::showHistory));
         LinearLayout display=vertical();display.setGravity(Gravity.BOTTOM|Gravity.RIGHT);display.setPadding(dp(8),dp(3),dp(13),dp(4));
-        display.setBackground(bordered(0xff102531,0xff304c5c,9));page.addView(display,new LinearLayout.LayoutParams(-1,0,2.7f));
+        display.setBackground(bordered(0xff102531,0xff304c5c,9));page.addView(display,new LinearLayout.LayoutParams(-1,0,3.7f));
+        CalcActions.add(this,display,this::copyResult,this::showHistory);
         expr=label("",16,MUTED,false);expr.setSingleLine(true);expr.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         display.addView(expr,new LinearLayout.LayoutParams(-1,0,1));
         fitKey(expr,16);
@@ -248,16 +241,15 @@ public final class MainActivity extends Activity {
     private void afterKey(){updateScreen();persist();}
     private void showFullResult(){new AlertDialog.Builder(this).setTitle("ผลลัพธ์ทั้งหมด").setMessage(engine.getDisplay())
             .setPositiveButton("คัดลอก",(d,w)->copyResult()).setNegativeButton("ปิด",null).show();}
-    private void copyResult(){copy(engine.getDisplay());}
+    private void copyResult(){CalcActions.copy(this,engine.hasError()?null:engine.getDisplay());}
     private void copy(String value){ClipboardManager cb=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
         if(cb!=null)cb.setPrimaryClip(ClipData.newPlainText("Beat Calculator",value));
         Toast.makeText(this,"คัดลอกแล้ว",Toast.LENGTH_SHORT).show();}
-    private void showHistory(){List<String> lines=engine.getHistory();if(lines.isEmpty()){
-        new AlertDialog.Builder(this).setTitle("History").setMessage("ยังไม่มีประวัติ").setPositiveButton("ปิด",null).show();return;}
-        new AlertDialog.Builder(this).setTitle("History").setItems(lines.toArray(new String[0]),(d,i)->{
-            if(engine.useHistoryResult(lines.get(i)))afterKey();})
-            .setNeutralButton("ล้างประวัติ",(d,w)->{engine.clearHistory();afterKey();})
-            .setNegativeButton("ปิด",null).show();}
+    private void showHistory(){
+        List<CalcActions.Entry> entries=new ArrayList<>();
+        for(String line:engine.getHistory())entries.add(CalcActions.split(line,"\n",record->{if(engine.useHistoryResult(record))afterKey();}));
+        CalcActions.show(this,"Standard / Scientific · History",entries,()->{engine.clearHistory();afterKey();});
+    }
     private void showMemory(){if(!engine.hasMemory()){
         new AlertDialog.Builder(this).setTitle("Memory").setMessage("ยังไม่มีข้อมูล กด MS เพื่อบันทึก")
                 .setPositiveButton("ปิด",null).show();return;}
@@ -265,22 +257,21 @@ public final class MainActivity extends Activity {
             .setPositiveButton("MR",(d,w)->{engine.press("MR");afterKey();})
             .setNeutralButton("MC",(d,w)->{engine.press("MC");afterKey();})
             .setNegativeButton("ปิด",null).show();}
-    private void showModeDialog(){new AlertDialog.Builder(this).setTitle("เลือกรูปแบบ")
-        .setItems(java.util.Arrays.stream(NAV).mapToObj(i->MODES[i]).toArray(String[]::new),(d,i)->selectMode(NAV[i]))
-        .setNeutralButton("ล้างประวัติและ Memory",(d,i)->new AlertDialog.Builder(this)
-            .setTitle("ล้างข้อมูลทั้งหมด?").setNegativeButton("ยกเลิก",null)
-            .setPositiveButton("ล้าง",(dd,j)->{engine.clearSavedData();afterKey();}).show()).show();}
-
+    private CalcActions.AutoRecord unitAutoRecord;
+    private String unitHistoryLabel(){return String.valueOf(unitCategory.getSelectedItem())+" · "+unitInput.getText()+" "+unitFrom.getSelectedItem()+" → "+unitTo.getSelectedItem();}
     private void buildUnits(){
         ResponsiveForm ui=new ResponsiveForm(this);
-        LinearLayout container=ui.screen(page,"Converter","");
+        LinearLayout container=ui.screen(page,"","");
         unitCategory=ui.spin(container,"หมวดหมู่",java.util.Arrays.stream(UnitConverter.categories()).filter(c->!c.equals("ภาษี")).toArray(String[]::new));
         unitInput=ui.input(container,"จำนวน","1",false);
         unitFrom=ui.spin(container,"จาก",new String[]{""});
         unitTo=ui.spin(container,"เป็น",new String[]{""});
         unitRate=numberBox("7");unitRate.setText("7"); // tax is handled in Financial, not shown here
         container.addView(ui.compactText("ผลลัพธ์",12,MUTED,false));
+        CalcActions.Log log=new CalcActions.Log(this,"converter");
+        CalcActions.add(this,container,()->log.copyRecord(unitHistoryLabel(),unitOutput.getText().toString()),()->log.show("Converter · History"));
         unitOutput=ui.result(container);
+        unitAutoRecord=new CalcActions.AutoRecord(unitOutput,log,this::unitHistoryLabel);
         unitHelp=ui.compactText("",12,MUTED,false);container.addView(unitHelp);
         LinearLayout actions=ui.adaptivePair(container,340);
         unitSwap=ui.formButton("⇅ สลับหน่วย",()->{
@@ -288,7 +279,6 @@ public final class MainActivity extends Activity {
             if(a>=0&&b>=0){unitFrom.setSelection(b);unitTo.setSelection(a);updateUnits();}
         },false);
         ui.pairChild(actions,unitSwap);
-        ui.pairChild(actions,ui.formButton("คัดลอกผลลัพธ์",()->copy(unitOutput.getText().toString()),true));
         unitCategory.setOnItemSelectedListener(selected(()->{
             String c=(String)unitCategory.getSelectedItem();String[] choices=UnitConverter.units(c);
             unitFrom.setAdapter(ui.options(choices));unitTo.setAdapter(ui.options(choices));
@@ -318,6 +308,7 @@ public final class MainActivity extends Activity {
             unitOutput.setText(UnitConverter.display(out));
         }catch(Exception e){unitOutput.setText("—");unitHelp.setText(e.getMessage());}
         updatingUnit=false;
+        if(unitAutoRecord!=null)unitAutoRecord.changed();
     }
     private String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "?";}}
     private void showAbout(){

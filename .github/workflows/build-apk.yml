@@ -92,6 +92,9 @@ jobs:
       - name: Check scoped UI requirements
         run: python3 tests/ui_v535_source_check.py
 
+      - name: Check unified calculator actions
+        run: python3 tests/ui_v536_source_check.py
+
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
 
