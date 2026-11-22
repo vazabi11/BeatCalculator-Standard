@@ -16,7 +16,7 @@ checks={
  'currency keeps swap and refresh': 'Swap currencies' in cu and 'Refresh rate' in cu,
  'currency keeps reference/cache': all(x in cu for x in ('PriceService.reference(', 'prefs.edit()', 'live_markets53')),
  'converter uses scoped form': 'new ResponsiveForm(this)' in unit and 'ui.result(container)' in unit,
- 'converter preserves swap/copy': 'unitFrom.setSelection(b)' in unit and 'copy(unitOutput.getText().toString())' in unit,
+ 'converter preserves swap/copy': 'unitFrom.setSelection(b)' in unit and 'log.copyRecord(unitHistoryLabel(),unitOutput.getText().toString())' in unit,
  'converter excludes tax category': '.filter(c->!c.equals("ภาษี"))' in unit,
  'measured adaptive width': 'View.MeasureSpec.getSize(w)' in r and 'UiPolicy.sideBySide' in r,
  'scroll fallback': 'setFillViewport(true)' in r and 'ScrollView' in r,
