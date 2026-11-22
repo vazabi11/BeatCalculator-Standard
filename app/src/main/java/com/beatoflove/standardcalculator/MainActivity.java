@@ -128,6 +128,7 @@ public final class MainActivity extends Activity {
         if(stream!=null)stream.stop();if(currencyPanel!=null)currencyPanel.stop();
         if(currentMode==3&&formulaPanel!=null)formulaPanel.save();
         fetchToken++;handler.removeCallbacks(periodic);handler.removeCallbacks(marketSelection);currentMode=mode;
+        getWindow().setSoftInputMode((mode==4||mode==8)?WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE:WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED);
         tabsRow.removeAllViews();
         for(int i:NAV){
             final int n=i;
@@ -271,48 +272,32 @@ public final class MainActivity extends Activity {
             .setPositiveButton("ล้าง",(dd,j)->{engine.clearSavedData();afterKey();}).show()).show();}
 
     private void buildUnits(){
-        ScrollView scroll=new ScrollView(this);page.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
-        LinearLayout container=vertical();container.setPadding(dp(18),dp(14),dp(18),dp(20));scroll.addView(container);
-        container.addView(sectionTitle("Converter"));
-        container.addView(description("คำนวณออฟไลน์ • เลือกหมวดหมู่และหน่วยที่ต้องการ"));
-        container.addView(fieldLabel("หมวดหมู่"));
-        unitCategory=spinner(java.util.Arrays.stream(UnitConverter.categories()).filter(c->!c.equals("ภาษี")).toArray(String[]::new));container.addView(unitCategory,new LinearLayout.LayoutParams(-1,dp(52)));
-        container.addView(fieldLabel("จำนวน / ราคา"));
-        unitInput=numberBox("1");unitInput.setText("1");container.addView(unitInput,new LinearLayout.LayoutParams(-1,dp(58)));
-        unitFromLabel=fieldLabel("จาก");container.addView(unitFromLabel);
-        unitFrom=spinner(new String[]{""});container.addView(unitFrom,new LinearLayout.LayoutParams(-1,dp(50)));
-        unitSwap=button("⇅ สลับหน่วย",FUNCTION,WHITE);container.addView(unitSwap,new LinearLayout.LayoutParams(-1,dp(43)));
-        unitSwap.setOnClickListener(v->{
-            if("ภาษี".equals(unitCategory.getSelectedItem()))unitFrom.setSelection(1-unitFrom.getSelectedItemPosition());
-            else {int a=unitFrom.getSelectedItemPosition(),b=unitTo.getSelectedItemPosition();unitFrom.setSelection(b);unitTo.setSelection(a);}
-            updateUnits();
-        });
-        unitToLabel=fieldLabel("เป็น");container.addView(unitToLabel);
-        unitTo=spinner(new String[]{""});container.addView(unitTo,new LinearLayout.LayoutParams(-1,dp(50)));
-        unitRate=numberBox("7");unitRate.setText("7");
-        unitRateLabel=fieldLabel("อัตราภาษี (%) — เปลี่ยนได้");container.addView(unitRateLabel);
-        container.addView(unitRate,new LinearLayout.LayoutParams(-1,dp(48)));
-        container.addView(fieldLabel("ผลลัพธ์"));
-        unitOutput=label("",35,BLUE,true);unitOutput.setPadding(dp(8),dp(13),dp(8),dp(13));
-        unitOutput.setBackground(ripple(FUNCTION,dp(8)));unitOutput.setTextIsSelectable(true);
-        container.addView(unitOutput,new LinearLayout.LayoutParams(-1,-2));
-        unitHelp=description("ค่าจะแสดงเมื่อกรอกตัวเลข");container.addView(unitHelp);
-        TextView copy=button("คัดลอกผลลัพธ์",FUNCTION,WHITE);
-        container.addView(copy,new LinearLayout.LayoutParams(-1,dp(45)));
-        copy.setOnClickListener(v->copy(unitOutput.getText().toString()));
+        ResponsiveForm ui=new ResponsiveForm(this);
+        LinearLayout container=ui.screen(page,"Converter","");
+        unitCategory=ui.spin(container,"หมวดหมู่",java.util.Arrays.stream(UnitConverter.categories()).filter(c->!c.equals("ภาษี")).toArray(String[]::new));
+        unitInput=ui.input(container,"จำนวน","1",false);
+        unitFrom=ui.spin(container,"จาก",new String[]{""});
+        unitTo=ui.spin(container,"เป็น",new String[]{""});
+        unitRate=numberBox("7");unitRate.setText("7"); // tax is handled in Financial, not shown here
+        container.addView(ui.compactText("ผลลัพธ์",12,MUTED,false));
+        unitOutput=ui.result(container);
+        unitHelp=ui.compactText("",12,MUTED,false);container.addView(unitHelp);
+        LinearLayout actions=ui.adaptivePair(container,340);
+        unitSwap=ui.formButton("⇅ สลับหน่วย",()->{
+            int a=unitFrom.getSelectedItemPosition(),b=unitTo.getSelectedItemPosition();
+            if(a>=0&&b>=0){unitFrom.setSelection(b);unitTo.setSelection(a);updateUnits();}
+        },false);
+        ui.pairChild(actions,unitSwap);
+        ui.pairChild(actions,ui.formButton("คัดลอกผลลัพธ์",()->copy(unitOutput.getText().toString()),true));
         unitCategory.setOnItemSelectedListener(selected(()->{
             String c=(String)unitCategory.getSelectedItem();String[] choices=UnitConverter.units(c);
-            unitFrom.setAdapter(spinnerAdapter(choices));unitTo.setAdapter(spinnerAdapter(choices));
+            unitFrom.setAdapter(ui.options(choices));unitTo.setAdapter(ui.options(choices));
             if(choices.length>1)unitTo.setSelection(1);
-            boolean tax="ภาษี".equals(c);
-            unitFromLabel.setText(tax?"ประเภทคำนวณ":"จาก");
-            unitToLabel.setVisibility(tax?View.GONE:View.VISIBLE);unitTo.setVisibility(tax?View.GONE:View.VISIBLE);
-            unitRateLabel.setVisibility(tax?View.VISIBLE:View.GONE);unitRate.setVisibility(tax?View.VISIBLE:View.GONE);
-            unitSwap.setText(tax?"⇅ สลับ ก่อน/หลังภาษี":"⇅ สลับหน่วย");updateUnits();
+            updateUnits();
         }));
         unitFrom.setOnItemSelectedListener(selected(this::updateUnits));
         unitTo.setOnItemSelectedListener(selected(this::updateUnits));
-        unitInput.addTextChangedListener(watch(this::updateUnits));unitRate.addTextChangedListener(watch(this::updateUnits));
+        unitInput.addTextChangedListener(watch(this::updateUnits));
         unitCategory.setSelection(0);updateUnits();
     }
     private void updateUnits(){
@@ -328,7 +313,7 @@ public final class MainActivity extends Activity {
                 unitHelp.setText(inclusive?"หักภาษีออกจากราคาที่รวมภาษีแล้ว":"บวกภาษีเข้าในราคาก่อนภาษี");
             }else{
                 out=UnitConverter.convert(category,unitFrom.getSelectedItem().toString(),unitTo.getSelectedItem().toString(),unitInput.getText().toString());
-                unitHelp.setText("คำนวณจากนิยามการแปลงหน่วย • ผลแสดงสูงสุด 10 ตำแหน่งทศนิยม");
+                unitHelp.setText("ออฟไลน์ · สูงสุด 10 ตำแหน่งทศนิยม");
             }
             unitOutput.setText(UnitConverter.display(out));
         }catch(Exception e){unitOutput.setText("—");unitHelp.setText(e.getMessage());}
@@ -340,7 +325,6 @@ public final class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("SiraCalc · Sirawit Labs")
         .setIcon(R.drawable.ic_calculator_foreground)
         .setMessage("Smart Tools for Everyday Life\n\nDeveloper: Sirawit Dh.\nBrand: Sirawit Labs\nVersion: "+versionName()+"\nVersion code: "+code+"\nAndroid · Unified Calculator & Live Markets\n© 2026 Sirawit Labs")
-        .setNeutralButton("GitHub",(d,w)->openUrl("https://github.com/vazabi11/BeatCalculator-Standard"))
         .setPositiveButton("ปิด",null).show();
     }
     private GradientDrawable bordered(int fill,int stroke,int radius){GradientDrawable d=new GradientDrawable();d.setColor(fill);d.setCornerRadius(dp(radius));d.setStroke(dp(1),stroke);return d;}

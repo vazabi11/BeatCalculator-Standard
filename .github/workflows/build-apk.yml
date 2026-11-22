@@ -9,6 +9,8 @@ on:
         default: false
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -86,6 +88,9 @@ jobs:
           java -cp tests/out com.beatoflove.standardcalculator.RegionalFuelTest
           java -cp tests/out com.beatoflove.standardcalculator.UiPolicyTest
           java -cp tests/out com.beatoflove.standardcalculator.ReferenceRateTest
+
+      - name: Check scoped UI requirements
+        run: python3 tests/ui_v535_source_check.py
 
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace

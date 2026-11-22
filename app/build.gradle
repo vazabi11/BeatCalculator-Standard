@@ -10,8 +10,8 @@ android {
         applicationId 'com.beatoflove.standardcalculator'
         minSdk 26
         targetSdk 34
-        versionCode 13
-        versionName '5.3.4'
+        versionCode 14
+        versionName '5.3.5'
     }
 
     compileOptions {
