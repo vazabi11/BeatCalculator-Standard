@@ -1,0 +1,22 @@
+SiraCalc 5.3.5 — prepared-source QA (2026-11-22)
+Base d071160960a0c47d9cf2200436c60801764d9510.
+Standalone Java checks run from the existing CI commands (JDK available locally):
+PASS 42 calculator engine tests
+PASS 25 advanced/unit tests
+PASS 11 market feed tests
+PASS 10 cache policy tests
+PASS 10 PTT diagnostic tests
+PASS 6 publisher time tests
+PASS 135 Formula Pro assertions
+FinancialMathTest: 30 passed
+RegionalFuelTest: 6 passed
+UiPolicyTest: 61 passed
+ReferenceRateTest: 11 passed
+Note: app/src/main/java/com/beatoflove/standardcalculator/PttOilService.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Total: 347 passed (341 existing + 6 adaptive width/font checks).
+16 structural source checks passed (not Android UI tests).
+38 Java files parsed by JDK compiler parser without Android types.
+XML, workflow YAML, shell and Python syntax checks passed.
+Android compilation/Gradle unit tests, real UI measurement, live API tests, APK signing continuity and device acceptance: NOT RUN (no Android SDK/Gradle/adb or network in runtime).
+Required device checks: 320/360/393/480dp widths, short/large portrait displays, 1.0/1.3/2.0 font scale, keyboard open/closed, fullscreen/normal, Currency both modes and offline cache, long/negative/decimal amount, pair swap and refresh, Converter all seven visible categories and long Thai names/results, copy/swap, About metadata and absence of repository link, regression across all eight tabs. No universal fit guarantee until tested.
