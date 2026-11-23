@@ -62,6 +62,20 @@ public final class PriceService {
         goldAttempt=now;goldBody=null;goldError=null;
         try{return goldBody=read(THAI_GOLD_BACKUP_SOURCE);}catch(Exception ex){goldError=ex.getMessage();throw ex;}
     }
+    // Public ThaiGoldToday docs indicate a 60-second cache. Reuse one response per
+    // 60 seconds to avoid excessive requests from manual taps or tab switches.
+    private static long primaryAttempt=-60_000L;
+    private static String primaryBody,primaryError;
+    private static synchronized String readThaiGoldToday() throws Exception {
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(now-primaryAttempt<60_000L){
+            if(primaryBody!=null)return primaryBody;
+            throw new Exception(primaryError==null?"รอรอบอัปเดต":primaryError);
+        }
+        primaryAttempt=now;primaryBody=null;primaryError=null;
+        try{return primaryBody=read(THAI_GOLD_SOURCE);}
+        catch(Exception ex){primaryError=ex.getMessage();throw ex;}
+    }
     public static void reference(String from,String to,Callback<JSONObject> cb){
         if(!from.matches("[A-Z]{3}")||!to.matches("[A-Z]{3}")){cb.done(null,"Invalid currency");return;}
         async(()->new JSONObject(read("https://api.frankfurter.dev/v2/rate/"+from+"/"+to)),cb);
@@ -110,16 +124,27 @@ public final class PriceService {
     }
     public static void thaiGold(Callback<ThaiGoldData> cb) {
         async(() -> {
-            String originalFailure="";
-            try { return GoldFallbackParser.parse(readRakhagold()); }
-            catch(Exception e) { originalFailure=marketError(e); }
-            // Alternate source may require access authorization.
-            try { return parseThaiGold(read(THAI_GOLD_SOURCE)); }
-            catch(Exception e) {
-                throw new Exception("แหล่งราคาทองไทยไม่พร้อม — Rakhagold: "
-                    +originalFailure+"; ThaiGoldToday: "+marketError(e));
-            }
+            ThaiGoldData primary=null,backup=null;
+            String primaryFailure="",backupFailure="";
+            // A successful HTTP 200 response does not establish that a quote is recent.
+            try {primary=parseThaiGold(readThaiGoldToday());}
+            catch(Exception e){primaryFailure=marketError(e);}
+            try {backup=GoldFallbackParser.parse(readRakhagold());}
+            catch(Exception e){backupFailure=marketError(e);}
+            long now=System.currentTimeMillis();
+            int choice=GoldSourcePolicy.choose(
+                primary==null?0:publisherTime(primary.publishedAt),
+                backup==null?0:publisherTime(backup.publishedAt),now);
+            if(choice==0)return primary;
+            if(choice==1)return backup;
+            throw new Exception("ราคาทองไม่พร้อม — ThaiGoldToday: "
+                +primaryFailure+"; Rakhagold: "+backupFailure);
         },cb);
+    }
+    private static long publisherTime(String timestamp){
+        try {return Instant.parse(timestamp).toEpochMilli();}
+        catch(Exception ex){try {return java.time.OffsetDateTime.parse(timestamp).toInstant().toEpochMilli();}
+            catch(Exception ignored){return 0L;}}
     }
     public static ThaiGoldData parseThaiGold(String json) throws Exception {
         JSONObject current=new JSONObject(json).optJSONObject("current");
@@ -132,8 +157,11 @@ public final class PriceService {
         String stamp=current.optString("updatedAt","");long ms=0;
         try {ms=Instant.parse(stamp).toEpochMilli();}
         catch(Exception ex){try{ms=java.time.OffsetDateTime.parse(stamp).toInstant().toEpochMilli();}catch(Exception ignored){}}
-        boolean fresh=FreshnessPolicy.isRecent(ms,System.currentTimeMillis(),24L*60*60*1000);
-        return new ThaiGoldData(buyBar,sellBar,buyOrn,sellOrn,stamp,fresh,current.optInt("updateRound",0),current.optString("source","ThaiGoldToday"));
+        long now=System.currentTimeMillis();
+        if(!GoldSourcePolicy.validPublisher(ms,now))throw new Exception("ไม่มีเวลาประกาศที่ตรวจสอบได้");
+        if(sellBar<buyBar||sellOrn<buyOrn)throw new Exception("ราคาซื้อขายกลับด้าน");
+        boolean fresh=FreshnessPolicy.isRecent(ms,now,24L*60*60*1000);
+        return new ThaiGoldData(buyBar,sellBar,buyOrn,sellOrn,stamp,fresh,current.optInt("updateRound",0),"ThaiGoldToday");
     }
     public static final class FuelItem {
         public final String name; public final double price;
