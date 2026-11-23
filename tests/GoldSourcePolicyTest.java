@@ -20,6 +20,10 @@ public final class GoldSourcePolicyTest {
         check(GoldSourcePolicy.choose(today,now+11*60_000L,now)==0,"future fallback rejected");
         check(GoldSourcePolicy.choose(old,old+1,now)==1,"both stale: newest publisher timestamp wins");
         check(!GoldSourcePolicy.validPublisher(-1,now),"negative timestamps invalid");
+        check(GoldSourcePolicy.newest(now,old,today,old)==1,"newest of three wins");
+        check(GoldSourcePolicy.newest(now,0,0,0)==-1,"three empty sources");
+        check(GoldSourcePolicy.newest(now,today,today,old)==0,"ties prefer source priority");
+        check(GoldSourcePolicy.newest(now,now+11*60_000L,old)==1,"future rejected in three sources");
         System.out.println("PASS "+count+" gold source policy tests");
     }
 }

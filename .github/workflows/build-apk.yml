@@ -101,6 +101,9 @@ jobs:
       - name: Check Thai Gold freshness and source-selection requirements
         run: python3 tests/ui_v537_source_check.py
 
+      - name: Check official gold links and community fallback
+        run: python3 tests/ui_v538_source_check.py
+
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
 

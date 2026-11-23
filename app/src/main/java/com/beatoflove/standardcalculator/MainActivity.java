@@ -45,6 +45,7 @@ import java.util.Locale;
 /** Native calculator with seven modes and offline last-known-good market prices. */
 public final class MainActivity extends Activity {
     private static final int BG=0xff0b141d, HEADER=0xff0b141d, WHITE=Color.WHITE, MUTED=0xff90a4b7;
+    private static final String THAI_GOLD_OFFICIAL_PAGE="https://sse.goldtraders.or.th/dailyprices";
     private static final int FUNCTION=0xff142735, DIGIT=0xff233441, BLUE=0xff35c6f4, WARNING=0xffffba57;
     private static final String[] MODES={"","Standard","Scientific","Formula Pro","Converter","Fuel","Markets","Financial","Currency"};
     private static final int[] NAV={1,2,3,7,8,5,6,4};
@@ -352,8 +353,8 @@ public final class MainActivity extends Activity {
         liveStatus=label("กำลังตรวจสอบราคา",12,MUTED,false);liveStatus.setPadding(0,dp(8),0,dp(8));holder.addView(liveStatus);
         TextView note=label("ⓘ  ออฟไลน์: ใช้ราคาล่าสุดที่บันทึกไว้",12,0xffb7d9eb,false);note.setPadding(dp(12),dp(12),dp(12),dp(12));note.setBackground(bordered(0xff102531,0xff304c5c,10));holder.addView(note);
         TextView links=label("แหล่งข้อมูลและรายละเอียด  ↗",12,MUTED,false);links.setPadding(0,dp(14),0,dp(10));holder.addView(links);
-        links.setOnClickListener(v->{String[] titles=fuel?new String[]{"PTT OR","บางจาก","EPPO","PT","Caltex","รายละเอียดการเชื่อมต่อ"}:new String[]{"ThaiGoldToday — API ฟรี","Rakhagold — API สำรอง","สมาคมค้าทองคำ — ประกาศทางการ","Gold API"};
-            String[] urls=fuel?new String[]{"https://www.pttor.com/news/oil-price","https://www.bangchak.co.th/th/OilPrice/","https://www.eppo.go.th/","https://www.ptgenergy.co.th/home/index/","https://www.caltex.com/th/motorists/products-and-services/fuel-prices.html"}:new String[]{"https://www.thaigoldtoday.com/api-docs","https://rakhagold.com/api-docs/","https://www.goldtraders.or.th/","https://gold-api.com/"};
+        links.setOnClickListener(v->{String[] titles=fuel?new String[]{"PTT OR","บางจาก","EPPO","PT","Caltex","รายละเอียดการเชื่อมต่อ"}:new String[]{"สมาคมค้าทองคำ — ราคาประกาศล่าสุด","Thai Gold API — ที่มาและเอกสาร","Rakhagold — เอกสาร API","Gold API — ราคาทองตลาดโลก"};
+            String[] urls=fuel?new String[]{"https://www.pttor.com/news/oil-price","https://www.bangchak.co.th/th/OilPrice/","https://www.eppo.go.th/","https://www.ptgenergy.co.th/home/index/","https://www.caltex.com/th/motorists/products-and-services/fuel-prices.html"}:new String[]{THAI_GOLD_OFFICIAL_PAGE,"https://github.com/max180643/thai-gold-api","https://rakhagold.com/api-docs/","https://gold-api.com/"};
             new AlertDialog.Builder(this).setTitle("แหล่งข้อมูลอ้างอิง").setItems(titles,(d,i)->{if(i<urls.length)openUrl(urls[i]);else showFuelDetails();}).setPositiveButton("ปิด",null).show();});
         if(fuel){fuelBrand.setOnItemSelectedListener(selected(()->{int brand=currentFuelBrand();getSharedPreferences("fuel53",0).edit().putString("brandName",FUEL_BRANDS[brand]).apply();provincePicker.setEnabled(brand<2);if(brand>=2&&!referenceArea()){provincePicker.setSelection(0);return;}loadFuel();}));fuelFilter.setOnItemSelectedListener(selected(this::renderFuel));provincePicker.setOnItemSelectedListener(selected(()->{latestPtt=null;districtScope=null;districtPicker.setAdapter(spinnerAdapter(new String[]{"All districts"}));getSharedPreferences("fuel53",0).edit().putInt("province",provincePicker.getSelectedItemPosition()).apply();loadFuel();}));districtPicker.setOnItemSelectedListener(selected(()->{if(changingDistrict)return;String d=String.valueOf(districtPicker.getSelectedItem());if(latestPtt!=null&&!referenceArea())districtScope=d;renderFuel();}));}
     }
@@ -534,7 +535,19 @@ public final class MainActivity extends Activity {
         c.addView(goldPriceRow("รูปพรรณ · ฐานรับซื้อ",data.buyOrnament,previous==null?null:previous.buyOrnament,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
         c.addView(goldPriceRow("รูปพรรณ · ขายออก",data.sellOrnament,previous==null?null:previous.sellOrnament,previous!=null&&data.source.equals(previous.source)&&PriceCache.epoch(data.publishedAt)>0&&PriceCache.epoch(data.publishedAt)>=PriceCache.epoch(previous.publishedAt)),new LinearLayout.LayoutParams(-1,dp(46)));rule(c);
         attachCard(c,"ประกาศ: "+formatThaiTime(data.publishedAt)+(data.updateRound>0?" · ครั้งที่ "+data.updateRound:"")+"\nแหล่งข้อมูล: "+data.source+" · ไม่รวมค่ากำเหน็จ"+(cache?"\nแคช: "+formatSavedAt(savedAt):""));}
+        TextView official=label("↗  ดูราคาประกาศล่าสุดจากสมาคมค้าทองคำ",13,BLUE,true);
+        official.setGravity(Gravity.CENTER_VERTICAL);
+        official.setPadding(dp(12),dp(8),dp(12),dp(8));
+        official.setBackground(bordered(0xff102531,0xff304c5c,9));
+        official.setContentDescription("เปิดหน้าราคาทองคำล่าสุดของสมาคมค้าทองคำ");
+        official.setOnClickListener(v->openUrl(THAI_GOLD_OFFICIAL_PAGE));
+        liveResults.addView(official,new LinearLayout.LayoutParams(-1,dp(48)));
         marketStatus(failure,checking,cache&&data!=null);
+        if(data!=null&&!data.fresh&&!checking){
+            liveStatus.setText("ข้อมูลจาก API เกิน 24 ชม. — ตรวจสอบประกาศล่าสุดจากสมาคม");
+            liveStatus.setTextColor(WARNING);liveStatus.setVisibility(View.VISIBLE);
+            liveStatus.setOnClickListener(null);
+        }
     }
     private void renderSpot(PriceService.MetalData data,boolean cache,long savedAt,String failure,boolean checking){
         if(liveResults==null||liveStatus==null)return;liveResults.removeAllViews();
