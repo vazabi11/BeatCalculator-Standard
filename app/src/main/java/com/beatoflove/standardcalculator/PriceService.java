@@ -23,6 +23,8 @@ public final class PriceService {
     public static final String PTT_SOURCE="https://orapiweb.pttor.com/oilservice/OilPrice.asmx";
     public static final String THAI_GOLD_SOURCE="https://www.thaigoldtoday.com/api/gold-price";
     public static final String THAI_GOLD_BACKUP_SOURCE="https://rakhagold.com/wp-json/priceradar/v1/gold/latest";
+    // Optional community wrapper scraping association notices; validate timestamp before displaying.
+    public static final String THAI_GOLD_COMMUNITY_SOURCE="https://api.chnwt.dev/thai-gold-api/latest";
     private PriceService() { }
 
     public interface Callback<T> { void done(T value, String error); }
@@ -76,6 +78,18 @@ public final class PriceService {
         try{return primaryBody=read(THAI_GOLD_SOURCE);}
         catch(Exception ex){primaryError=ex.getMessage();throw ex;}
     }
+    private static long communityAttempt=-60_000L;
+    private static String communityBody,communityError;
+    private static synchronized String readCommunityGold() throws Exception {
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(now-communityAttempt<60_000L){
+            if(communityBody!=null)return communityBody;
+            throw new Exception(communityError==null?"รอรอบอัปเดต":communityError);
+        }
+        communityAttempt=now;communityBody=null;communityError=null;
+        try{return communityBody=read(THAI_GOLD_COMMUNITY_SOURCE);}
+        catch(Exception ex){communityError=ex.getMessage();throw ex;}
+    }
     public static void reference(String from,String to,Callback<JSONObject> cb){
         if(!from.matches("[A-Z]{3}")||!to.matches("[A-Z]{3}")){cb.done(null,"Invalid currency");return;}
         async(()->new JSONObject(read("https://api.frankfurter.dev/v2/rate/"+from+"/"+to)),cb);
@@ -124,21 +138,25 @@ public final class PriceService {
     }
     public static void thaiGold(Callback<ThaiGoldData> cb) {
         async(() -> {
-            ThaiGoldData primary=null,backup=null;
-            String primaryFailure="",backupFailure="";
-            // A successful HTTP 200 response does not establish that a quote is recent.
+            ThaiGoldData primary=null,community=null,backup=null;
+            String primaryFailure="",communityFailure="",backupFailure="";
+            // All endpoints are independent; an HTTP 200 is not evidence of fresh prices.
             try {primary=parseThaiGold(readThaiGoldToday());}
             catch(Exception e){primaryFailure=marketError(e);}
+            try {community=CommunityGoldParser.parse(readCommunityGold());}
+            catch(Exception e){communityFailure=marketError(e);}
             try {backup=GoldFallbackParser.parse(readRakhagold());}
             catch(Exception e){backupFailure=marketError(e);}
             long now=System.currentTimeMillis();
-            int choice=GoldSourcePolicy.choose(
+            int choice=GoldSourcePolicy.newest(now,
                 primary==null?0:publisherTime(primary.publishedAt),
-                backup==null?0:publisherTime(backup.publishedAt),now);
+                community==null?0:publisherTime(community.publishedAt),
+                backup==null?0:publisherTime(backup.publishedAt));
             if(choice==0)return primary;
-            if(choice==1)return backup;
-            throw new Exception("ราคาทองไม่พร้อม — ThaiGoldToday: "
-                +primaryFailure+"; Rakhagold: "+backupFailure);
+            if(choice==1)return community;
+            if(choice==2)return backup;
+            throw new Exception("ไม่มีแหล่งราคาทองที่ตรวจสอบเวลาได้ — ThaiGoldToday: "
+                +primaryFailure+"; Community: "+communityFailure+"; Rakhagold: "+backupFailure);
         },cb);
     }
     private static long publisherTime(String timestamp){

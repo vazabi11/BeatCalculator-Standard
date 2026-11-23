@@ -1,5 +1,6 @@
 """SiraCalc V5.3.7 market source structural gate; not a live API/Android device test."""
 from pathlib import Path
+import re
 root=Path(__file__).resolve().parents[1]
 java=root/'app/src/main/java/com/beatoflove/standardcalculator'
 p=(java/'PriceService.java').read_text(encoding='utf-8')
@@ -7,12 +8,21 @@ m=(java/'MainActivity.java').read_text(encoding='utf-8')
 c=(java/'PriceCache.java').read_text(encoding='utf-8')
 g=(root/'app/build.gradle').read_text(encoding='utf-8')
 policy=(java/'GoldSourcePolicy.java').read_text(encoding='utf-8')
+v=re.search(r"(?m)^\s*versionName\s+['\"](\d+)\.(\d+)\.(\d+)['\"]\s*$",g)
+code=re.search(r"(?m)^\s*versionCode\s+(\d+)\s*$",g)
 checks={
-  'version': "versionCode 16" in g and "versionName '5.3.7'" in g,
+  'minimum version 5.3.7':bool(v and code and tuple(map(int,v.groups())) >= (5,3,7) and int(code.group(1)) >= 16),
   'stable application id': "applicationId 'com.beatoflove.standardcalculator'" in g,
   'ThaiGoldToday attempted': 'primary=parseThaiGold(readThaiGoldToday())' in p,
   'Rakhagold attempted': 'backup=GoldFallbackParser.parse(readRakhagold())' in p,
-  'selection uses publisher timestamps': 'GoldSourcePolicy.choose(' in p and 'publisherTime(primary.publishedAt)' in p and 'publisherTime(backup.publishedAt)' in p,
+  'selection uses publisher timestamps': (
+      'publisherTime(primary.publishedAt)' in p
+      and 'publisherTime(backup.publishedAt)' in p
+      and (
+          'GoldSourcePolicy.choose(' in p
+          or ('GoldSourcePolicy.newest(' in p and 'publisherTime(community.publishedAt)' in p)
+      )
+  ),
   'no legacy first-return bug': 'try { return GoldFallbackParser.parse(readRakhagold()); }' not in p,
   'both gated at one minute': 'now-primaryAttempt<60_000L' in p and 'now-goldAttempt<60_000L' in p,
   'reject invalid primary timestamp': 'GoldSourcePolicy.validPublisher(ms,now)' in p,
