@@ -1,0 +1,86 @@
+name: Build SiraCalc Signed Release APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - name: Build and test release
+        run: gradle :app:testReleaseUnitTest :app:assembleRelease --no-daemon --stacktrace
+      - name: Sign and verify release APK
+        id: sign
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.SIRACALC_RELEASE_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.SIRACALC_RELEASE_STORE_PASSWORD }}
+          CERT_SHA256: ${{ vars.SIRACALC_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${KEYSTORE_B64:?Missing keystore secret}" "${STORE_PASSWORD:?Missing password secret}" "${CERT_SHA256:?Missing certificate fingerprint variable}"
+          KEYSTORE=$(mktemp "$RUNNER_TEMP/siracalc.XXXXXXXX")
+          trap 'rm -f "$KEYSTORE"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          unset KEYSTORE_B64
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          UNSIGNED=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$UNSIGNED"
+          "$BT/zipalign" -P 16 -f 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          mkdir -p dist
+          VERSION=$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          v=re.findall(r"^\s*versionName\s+['\"]([^'\"]+)['\"]\s*$",Path('app/build.gradle').read_text(),re.M)
+          assert len(v)==1 and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',v[0]), 'Invalid versionName'
+          print(v[0])
+          PY
+          )
+          APK="dist/Calculator-v${VERSION}.apk"
+          "$BT/apksigner" sign --ks "$KEYSTORE" --ks-type PKCS12 --ks-key-alias siracalc-release --ks-pass env:STORE_PASSWORD --key-pass env:STORE_PASSWORD --out "$APK" "$RUNNER_TEMP/aligned.apk"
+          unset STORE_PASSWORD
+          "$BT/zipalign" -c -P 16 4 "$APK"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/apk-certs.txt"
+          cat "$RUNNER_TEMP/apk-certs.txt"
+          "$BT/aapt" dump badging "$APK" > "$RUNNER_TEMP/apk-badging.txt"
+          python3 - "$RUNNER_TEMP/apk-certs.txt" "$RUNNER_TEMP/apk-badging.txt" <<'PY'
+          import re,sys,os
+          from pathlib import Path
+          certs=Path(sys.argv[1]).read_text()
+          badging=Path(sys.argv[2]).read_text()
+          expected=os.environ['CERT_SHA256'].replace(':','').strip().lower()
+          fingerprints=re.findall(r'Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)',certs)
+          assert len(fingerprints)==1 and fingerprints[0].lower()==expected, 'Signing certificate mismatch'
+          assert re.search(r'Verified using v[23] scheme.*: true',certs), 'APK v2/v3 signature required'
+          gradle=Path('app/build.gradle').read_text()
+          package=re.search(r'^package: (.+)$',badging,re.M).group(1)
+          for field,pattern in [('name',r"^\s*applicationId\s+['\"]([^'\"]+)['\"]"),('versionName',r"^\s*versionName\s+['\"]([^'\"]+)['\"]"),('versionCode',r'^\s*versionCode\s+(\d+)')]:
+              assert re.search(r'(?:^|\s)'+field+r"='([^']+)'",package).group(1)==re.search(pattern,gradle,re.M).group(1), field+' mismatch'
+          assert not re.search(r'^application-debuggable\s*$',badging,re.M), 'Debuggable APK rejected'
+          print('PASS: package, version, release flag, certificate and signature')
+          PY
+          (cd dist && sha256sum "Calculator-v${VERSION}.apk" > SHA256SUMS.txt)
+          printf 'name=Calculator-v%s-SignedRelease\n' "$VERSION" >> "$GITHUB_OUTPUT"
+          printf '## Signed release (not automatically published)\n- Version: %s\n- Certificate SHA-256: %s\n' "$VERSION" "$CERT_SHA256" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.sign.outputs.name }}
+          path: dist/
+          if-no-files-found: error
