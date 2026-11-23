@@ -60,6 +60,8 @@ jobs:
             app/src/main/java/com/beatoflove/standardcalculator/CacheUpdatePolicy.java \
             tests/CacheUpdatePolicyTest.java \
             app/src/main/java/com/beatoflove/standardcalculator/FreshnessPolicy.java \
+            app/src/main/java/com/beatoflove/standardcalculator/GoldSourcePolicy.java \
+            tests/GoldSourcePolicyTest.java \
             app/src/main/java/com/beatoflove/standardcalculator/OilPriceParser.java \
             tests/MarketFeedsTest.java \
             app/src/main/java/com/beatoflove/standardcalculator/MarketTime.java \
@@ -80,6 +82,7 @@ jobs:
           java -cp tests/out com.beatoflove.standardcalculator.CalculatorEngineTest
           java -cp tests/out com.beatoflove.standardcalculator.AdvancedFeaturesTest
           java -cp tests/out com.beatoflove.standardcalculator.MarketFeedsTest
+          java -cp tests/out com.beatoflove.standardcalculator.GoldSourcePolicyTest
           java -cp tests/out com.beatoflove.standardcalculator.CacheUpdatePolicyTest
           java -cp tests/out com.beatoflove.standardcalculator.PttParserDiagnosticsTest
           java -cp tests/out com.beatoflove.standardcalculator.MarketTimeTest
@@ -94,6 +97,9 @@ jobs:
 
       - name: Check unified calculator actions
         run: python3 tests/ui_v536_source_check.py
+
+      - name: Check Thai Gold freshness and source-selection requirements
+        run: python3 tests/ui_v537_source_check.py
 
       - name: Build debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace

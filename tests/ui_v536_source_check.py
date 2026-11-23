@@ -1,14 +1,17 @@
 """Structural source checks for V5.3.6. Not Android UI/interaction tests."""
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
 base=root/'app/src/main/java/com/beatoflove/standardcalculator'
 m=(base/'MainActivity.java').read_text();f=(base/'FormulaPanel.java').read_text();fin=(base/'FinancialPanel.java').read_text();c=(base/'CurrencyPanel.java').read_text();a=(base/'CalcActions.java').read_text();g=(root/'app/build.gradle').read_text()
+version_match=re.search(r"(?m)^\s*versionName\s+['\"](\d+)\.(\d+)\.(\d+)['\"]\s*$",g)
+code_match=re.search(r'(?m)^\s*versionCode\s+(\d+)\s*$',g)
 std=m.split('private void buildCalculator(int mode){',1)[1].split('LinearLayout display=vertical();',1)[0]
 conv=m.split('private void buildUnits(){',1)[1].split('private void updateUnits(){',1)[0]
 cur=c.split(' void convert(',1)[1].split(' void exchangeRates(',1)[0]
 checks={
- 'version 5.3.6 / code 15':"versionName '5.3.6'" in g and 'versionCode 15' in g,
+ 'minimum calculator UI version':bool(version_match and code_match and tuple(map(int,version_match.groups())) >= (5,3,6) and int(code_match.group(1)) >= 15),
  'package stable':"applicationId 'com.beatoflove.standardcalculator'" in g,
  'no obsolete calculator header references':all(x not in m for x in ('modeBar','modeTitle','showModeDialog')),
  'standard/scientific action strip':'CalcActions.add(this,display,this::copyResult,this::showHistory)' in m,
